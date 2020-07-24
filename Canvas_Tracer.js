@@ -1,4 +1,4 @@
-/* 3D Vector/Surface Math library... */
+// first, roll my own 3D Vector/Surface/RayTracing Math utility functions ;-)
 
 let a, b, c;
 let discrim, rootDiscrim, Q;
