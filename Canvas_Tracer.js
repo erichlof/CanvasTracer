@@ -635,7 +635,7 @@ function rayTrace(rayOrigin, rayDirection)
 
 			continue;
 
-                } // end if (hitRecord.type == TRANSPARENT)
+                } // end if (hitRecord.type == CLEARCOAT)
 
         } // end for (let bounces = 0; bounces < MAX_BOUNCES; bounces++)
 
