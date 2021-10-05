@@ -1,4 +1,4 @@
-// first, roll my own 3D Vector/Surface/RayTracing Math utility functions ;-)
+/* 3D Vector/Surface Math library... */
 
 let a, b, c;
 let discrim, rootDiscrim, Q;
@@ -60,6 +60,15 @@ vec3.prototype.multScalar = function(scalarNumber)
         this.z *= scalarNumber;
 };
 
+vec3.prototype.mix = function(vecA, vecB, amount)
+{
+	amount = Math.max(0, amount); // clamp supplied amount to 0-1 range
+	amount = Math.min(1, amount); // clamp supplied amount to 0-1 range
+	this.x = (vecA.x * (1 - amount)) + (vecB.x * amount);
+	this.y = (vecA.y * (1 - amount)) + (vecB.y * amount);
+	this.z = (vecA.z * (1 - amount)) + (vecB.z * amount);
+};
+
 vec3.prototype.squaredLength = function()
 {
         return (this.x * this.x) + (this.y + this.y) + (this.z * this.z);
@@ -95,27 +104,6 @@ vec3.prototype.crossVectors = function(vecA, vecB)
         this.x = (vecA.y * vecB.z) - (vecA.z * vecB.y);
         this.y = (vecA.z * vecB.x) - (vecA.x * vecB.z);
         this.z = (vecA.x * vecB.y) - (vecA.y * vecB.x);
-};
-
-vec3.prototype.randomCosWeightedDirectionInHemisphere = function(nl)
-{
-	let up = Math.sqrt(Math.random()); // cos-weighted distribution in hemisphere
-    	let over = Math.sqrt(Math.max(0, 1 - (up * up)));
-	let around = Math.random() * (Math.PI * 2);
-
-	// from "Building an Orthonormal Basis, Revisited" http://jcgt.org/published/0006/01/01/
-	let signf = nl.z >= 0 ? 1 : -1;
-	let a = -1 / (signf + nl.z);
-	let b = nl.x * nl.y * a;
-	let T = new vec3( 1 + signf * nl.x * nl.x * a, signf * b, -signf * nl.x );
-	let B = new vec3( b, signf + nl.y * nl.y * a, -nl.y );
-
-        T.multScalar(Math.cos(around) * over);
-        B.multScalar(Math.sin(around) * over);
-        this.copy(nl);
-        this.multScalar(up);
-        this.add(T);
-        this.add(B);
 };
 
 vec3.prototype.reflect = function(surfaceNormal)
@@ -238,10 +226,8 @@ function PlaneIntersect( planeNormal, d, rayOrigin, rayDirection )
 
 
 let canvas = document.querySelector('canvas');
-canvas.width = 640;//document.body.clientWidth;
-canvas.height = 480;//document.body.clientHeight;
-let canvasWidth = canvas.width;
-let canvasHeight = canvas.height;
+canvas.width = document.body.clientWidth;
+canvas.height = document.body.clientHeight;
 let invWidth = 1.0 / canvas.width;
 let invHeight = 1.0 / canvas.height;
 let aspectRatio = canvas.width / canvas.height;
@@ -276,18 +262,13 @@ let tempUpVec = new vec3();
 let tempRightVec = new vec3();
 let rayOrigin = new vec3();
 let rayDirection = new vec3();
-let secondaryRayOrigin = new vec3();
-let secondaryRayDirection = new vec3();
+let ambientColor = new vec3();
+let diffuseColor = new vec3();
+let specularColor = new vec3();
 let accumulatedColor = new vec3();
 let colorMask = new vec3();
-let secondaryColorMask = new vec3();
 let bounceIsSpecular = true;
 let sampleLight = false;
-let diffuseCount = 0;
-let firstTypeWasDialectric = false;
-let firstTypeWasDiffuse = false;
-let isReflectionTime = false;
-let isShadowTime = false;
 let t = Infinity;
 let d = Infinity;
 let metalSphereRad = 2;
@@ -319,6 +300,8 @@ let nt = 1.5; // IOR of common Glass
 let Re = 0.0;
 let Tr = 0.0;
 let P = 0.0;
+let RP = 0.0;
+let TP = 0.0;
 let tempNormal = new vec3();
 let tempDir = new vec3();
 let hitRecord = {};
@@ -329,15 +312,46 @@ hitRecord.normal = new vec3();
 const CHECKER = 0;
 const DIFFUSE = 1;
 const METAL = 2;
-const DIALECTRIC = 3;
+const TRANSPARENT = 3;
 const CLEARCOAT = 4;
 const MAX_BOUNCES = 6;
 
 // each sample takes about a second, so use this number with caution!
-const MAX_SAMPLE_COUNT = 50;// this number * 1 second = total rendering time to finish
+const MAX_SAMPLE_COUNT = 100;// this number * 1 second = total rendering time to finish
 let sampleCount = 0;
 let infoElement = document.getElementById("info");
 
+window.addEventListener('resize', onWindowResize, false);
+
+function onWindowResize(event)
+{
+	// recalculate image dimensions and viewing plane scale
+	canvas.width = document.body.clientWidth;
+	canvas.height = document.body.clientHeight;
+	invWidth = 1.0 / canvas.width;
+	invHeight = 1.0 / canvas.height;
+	aspectRatio = canvas.width / canvas.height;
+	// FOV = 60.0;
+	// thetaFOV = FOV * 0.5 * (Math.PI / 180.0);
+	vLen = Math.tan(thetaFOV); // height scale
+	uLen = vLen * aspectRatio; // width scale
+
+	imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+	pixelMemory = [];
+	for (let i = 0; i < imageData.data.length; i += 4) 
+	{
+		pixelMemory[i] = new vec3();
+	}
+
+	if (sampleCount == MAX_SAMPLE_COUNT)
+	{
+		sampleCount = 0;
+		animate(); // restart requestAnimationFrame
+	}
+	else
+		sampleCount = 0; // reset sampleCount to start a fresh progressive render
+}
 
 function sceneIntersect(rayOrigin, rayDirection)
 {
@@ -386,7 +400,7 @@ function sceneIntersect(rayOrigin, rayDirection)
                 hitRecord.normal.copy(hitPoint);
                 hitRecord.normal.sub(glassSpherePos);
                 hitRecord.normal.normalize();
-                hitRecord.type = DIALECTRIC;
+                hitRecord.type = TRANSPARENT;
         }
 
         d = SphereIntersect(coatSphereRad, coatSpherePos, rayOrigin, rayDirection);
@@ -425,13 +439,8 @@ function rayTrace(rayOrigin, rayDirection)
 {
         accumulatedColor.set(0, 0, 0);
         colorMask.set(1, 1, 1);
-        diffuseCount = 0;
         bounceIsSpecular = true;
         sampleLight = false;
-        firstTypeWasDialectric = false;
-        firstTypeWasDiffuse = false;
-        isReflectionTime = false;
-        isShadowTime = false;
 
         for (let bounces = 0; bounces < MAX_BOUNCES; bounces++)
         {
@@ -439,130 +448,22 @@ function rayTrace(rayOrigin, rayDirection)
 
                 if (hitRecord.t == Infinity)
                 {
-                        if (bounces == 0)
+                        if (bounces == 0 || bounceIsSpecular)
                         {
                                 accumulatedColor.copy(colorMask);
                                 accumulatedColor.mul(skyColor);
-                                break;
                         }
 
-                        if (firstTypeWasDialectric)
-			{
-				if (!isReflectionTime) 
-				{
-                                        if (bounceIsSpecular)
-                                        {
-                                                accumulatedColor.copy(colorMask);
-                                                accumulatedColor.mul(skyColor);
-                                        }
-
-                                        if (sampleLight)
-                                        {
-                                                accumulatedColor.copy(colorMask);
-                                                accumulatedColor.mul(sunColor);
-                                        }
-					
-					// start back at the refractive surface, but this time follow reflective branch
-                                        rayOrigin.copy(secondaryRayOrigin);
-                                        rayDirection.copy(secondaryRayDirection);
-					colorMask.copy(secondaryColorMask);
-					// set/reset variables
-					isReflectionTime = true;
-					bounceIsSpecular = true;
-					sampleLight = false;
-					// continue with the reflection ray
-					continue;
-				} // end if (!isReflectionTime) 
-
-                                // add reflective result to the refractive result (if any)
-                                if (bounceIsSpecular)
-                                {
-                                        colorMask.mul(skyColor);
-                                        accumulatedColor.add(colorMask);
-                                        break;
-                                }
-
-                                if (sampleLight)
-                                {
-                                        colorMask.mul(sunColor);
-                                        accumulatedColor.add(colorMask);
-                                        break;
-                                }
-                                
-			} // end if (firstTypeWasDialectric)
+                        break;        
+                }
 
 
-                        if (firstTypeWasDiffuse)
-                        {
-                                if (!isShadowTime)
-                                {
-                                        accumulatedColor.copy(colorMask);
-                                        accumulatedColor.mul(skyColor);
-                                        accumulatedColor.multScalar(0.5);
-
-                                        // start back at the diffuse surface, but this time follow shadow ray branch
-                                        rayOrigin.copy(secondaryRayOrigin);
-                                        rayDirection.copy(secondaryRayDirection);
-                                        colorMask.copy(secondaryColorMask);
-                                        // set/reset variables
-                                        isShadowTime = true;
-                                        bounceIsSpecular = false;
-                                        sampleLight = true;
-                                        // continue with the shadow ray
-                                        continue;
-                                }
-                                
-                                colorMask.mul(sunColor);
-                                colorMask.multScalar(0.5);
-                                accumulatedColor.add(colorMask);
-                                break;
-                        } // end if (firstTypeWasDiffuse)
-                        
-
-                        if (bounceIsSpecular)
-                        {
-                                accumulatedColor.copy(colorMask);
-                                accumulatedColor.mul(skyColor);
-                                break;
-                        }
-
-                } // end if (hitRecord.t == Infinity)
-
-
-                // if we reached this point and sampleLight is still true, that means the shadow ray ran into other scene
-                // geometry before it could reach the light source, so continue with secondary rays, or if already doing that, exit 
+                // if we reached this point and sampleLight is still true, this means that the shadow ray 
+                //  intersected another scene object before it could reach the light source, so exit
                 if (sampleLight)
-                {
-                        if (firstTypeWasDialectric && !isReflectionTime) 
-			{
-				// start back at the refractive surface, but this time follow reflective branch
-				rayOrigin.copy(secondaryRayOrigin);
-                                rayDirection.copy(secondaryRayDirection);
-                                colorMask.copy(secondaryColorMask);
-                                // set/reset variables
-                                isReflectionTime = true;
-                                bounceIsSpecular = true;
-                                sampleLight = false;
-                                // continue with the reflection ray
-                                continue;
-                        }
-                        
-                        if (firstTypeWasDiffuse && !isShadowTime) 
-			{
-				// start back at the diffuse surface, but this time follow shadow ray branch
-				rayOrigin.copy(secondaryRayOrigin);
-                                rayDirection.copy(secondaryRayDirection);
-                                colorMask.copy(secondaryColorMask);
-                                // set/reset variables
-                                isShadowTime = true;
-                                bounceIsSpecular = false;
-                                sampleLight = true;
-                                // continue with the shadow ray
-                                continue;
-			}
-
-			// nothing left to calculate, so exit	
-                        break; // this exit creates a shadow
+                {	
+			accumulatedColor.copy(ambientColor);
+                        break; // this exit leaves a shadow
                 }
 
                 // useful data 
@@ -571,7 +472,6 @@ function rayTrace(rayOrigin, rayDirection)
                 nl.copy(n);
                 if (rayDirection.dot(n) >= 0.0)
                         nl.multScalar(-1);
-                nl.normalize();
 
                 // calculate intersection point
                 tempDir.copy(rayDirection);
@@ -583,75 +483,61 @@ function rayTrace(rayOrigin, rayDirection)
 
                 if (hitRecord.type == CHECKER)
                 {
-                        diffuseCount++;
-
                         // create checker pattern
                         //if ( Math.abs( Math.floor(rayOrigin.x * checkScale) ) % 2 + Math.abs( Math.floor(rayOrigin.z * checkScale) ) % 2 == 1 )
                         if ( Math.sin((rayOrigin.x * checkScale)) > -0.98 && Math.sin((rayOrigin.z * checkScale)) > -0.98 )    
                                 hitRecord.color.copy(checkColor1);
                         else hitRecord.color.copy(checkColor2);
 
-                        colorMask.mul(hitRecord.color);
+			// evaluate lighting model at this point on surface
 
-                        bounceIsSpecular = false;
+			// ambient contribution
+			ambientColor.copy(hitRecord.color);
+			ambientColor.mul(colorMask);
+			ambientColor.mul(skyColor);
+			ambientColor.multScalar(0.3);
+			// diffuse contribution
+			diffuseColor.copy(hitRecord.color);
+			diffuseColor.mul(colorMask);
+			diffuseColor.mul(sunColor);
+			// apply Lambertian lighting (N dot L)
+			accumulatedColor.mix(ambientColor, diffuseColor, nl.dot(sunDirection));
 
-                        if (diffuseCount == 1 && !firstTypeWasDiffuse && !firstTypeWasDialectric)
-			{	
-				// save intersection data for future shadowray trace
-                                firstTypeWasDiffuse = true;
-                                secondaryRayOrigin.copy(rayOrigin);
-                                secondaryRayOrigin.add(tempNormal);
-                                secondaryRayDirection.copy(sunDirection); // create shadow ray
-                                secondaryRayDirection.normalize();
-                                secondaryColorMask.copy(colorMask);
-                                secondaryColorMask.multScalar(Math.max(0.0, secondaryRayDirection.dot(nl)));
+			// create shadow ray
+			rayOrigin.add(tempNormal);
+			rayDirection.copy(sunDirection);
+			rayDirection.normalize();
 
-                                // choose random Diffuse sample vector
-                                rayOrigin.add(tempNormal);
-                                rayDirection.randomCosWeightedDirectionInHemisphere(nl);
-                                rayDirection.normalize();
-                                continue;
-                        }
+			bounceIsSpecular = false;
 
-                        rayOrigin.add(tempNormal);
-                        rayDirection.copy(sunDirection); // create shadow ray
-                        rayDirection.normalize();
-                        colorMask.multScalar(Math.max(0.0, rayDirection.dot(nl)));
-                        sampleLight = true;
+			sampleLight = true;
 
-                        continue;
+			continue;
                 }
 
                 if (hitRecord.type == DIFFUSE)
                 { 
-                        diffuseCount++;
+			// evaluate lighting model at this point on surface
 
-                        colorMask.mul(hitRecord.color);
-
-                        bounceIsSpecular = false;
-
-                        if (diffuseCount == 1 && !firstTypeWasDiffuse && !firstTypeWasDialectric)
-			{	
-				// save intersection data for future shadowray trace
-                                firstTypeWasDiffuse = true;
-                                secondaryRayOrigin.copy(rayOrigin);
-                                secondaryRayOrigin.add(tempNormal);
-                                secondaryRayDirection.copy(sunDirection); // create shadow ray
-                                secondaryRayDirection.normalize();
-                                secondaryColorMask.copy(colorMask);
-                                secondaryColorMask.multScalar(Math.max(0.0, secondaryRayDirection.dot(nl)));
-
-                                // choose random Diffuse sample vector
-                                rayOrigin.add(tempNormal);
-                                rayDirection.randomCosWeightedDirectionInHemisphere(nl);
-                                rayDirection.normalize();
-                                continue;
-                        }
-
+			// ambient contribution
+			ambientColor.copy(hitRecord.color);
+			ambientColor.mul(colorMask);
+			ambientColor.mul(skyColor);
+			ambientColor.multScalar(0.3);
+			// diffuse contribution
+			diffuseColor.copy(hitRecord.color);
+			diffuseColor.mul(colorMask);
+			diffuseColor.mul(sunColor);
+			// apply Lambertian lighting (N dot L)
+			accumulatedColor.mix(ambientColor, diffuseColor, nl.dot(sunDirection));
+			
+			// create shadow ray
                         rayOrigin.add(tempNormal);
-                        rayDirection.copy(sunDirection); // create shadow ray
+                        rayDirection.copy(sunDirection);
                         rayDirection.normalize();
-                        colorMask.multScalar(Math.max(0.0, rayDirection.dot(nl)));
+
+			bounceIsSpecular = false;
+
                         sampleLight = true;
 
                         continue;
@@ -666,101 +552,90 @@ function rayTrace(rayOrigin, rayDirection)
 
                         rayDirection.reflect(nl); // create reflection ray
                         rayDirection.normalize();
-                        //bounceIsSpecular = true;// turn on mirror reflecting caustics
 
                         continue; 
                 }
 
-                if (hitRecord.type == DIALECTRIC)
+                if (hitRecord.type == TRANSPARENT)
                 { 
                         nc = 1.0; // IOR of Air
 			nt = 1.5; // IOR of common Glass
                         Re = calcFresnelReflectance(rayDirection, n, nc, nt);
-                        Re = Math.max(0.0, Math.min(1.0, Re));
                         Tr = 1.0 - Re;
-                        //P = (Re + 0.5) * 0.5;
+                        P = 0.25 + (0.5 * Re);
+                        RP = Re / P;
+                        TP = Tr / (1.0 - P);
 
-                        if (diffuseCount == 0 && !firstTypeWasDialectric)
+                        if (Math.random() < P)
                         {
-                                firstTypeWasDialectric = true;
-                                // create secondary REFLECTION ray for a future reflection trace
-                                secondaryRayOrigin.copy(rayOrigin);
-                                secondaryRayOrigin.add(tempNormal);
-                                secondaryRayDirection.copy(rayDirection);
-                                secondaryRayDirection.reflect(nl);
-                                secondaryRayDirection.normalize();
-                                secondaryColorMask.copy(colorMask);
-                                secondaryColorMask.multScalar(Re);
+                                colorMask.multScalar(RP);
 
-                                colorMask.multScalar(Tr);
+                                rayOrigin.add(tempNormal);
+                                rayDirection.reflect(nl);
+                                rayDirection.normalize();
+                                continue;
                         }
                         
                         // REFRACT (Transmit)
+                        colorMask.multScalar(TP);
                         colorMask.mul(hitRecord.color);
-                        
+
                         rayOrigin.sub(tempNormal);
                         rayDirection.refract(nl, ratioIoR);
                         rayDirection.normalize();
 
-                        bounceIsSpecular = true;// turn on refracting caustics
-
                         continue; 
-                } // end if (hitRecord.type == DIALECTRIC)
+                } // end if (hitRecord.type == TRANSPARENT)
 
                 if (hitRecord.type == CLEARCOAT)
                 { 
                         nc = 1.0; // IOR of Air
 			nt = 1.4; // IOR of clearCoat
                         Re = calcFresnelReflectance(rayDirection, n, nc, nt);
-                        Re = Math.max(0.0, Math.min(1.0, Re));
                         Tr = 1.0 - Re;
+                        P = 0.25 + (0.5 * Re);
+                        RP = Re / P;
+                        TP = Tr / (1.0 - P);
 
-                        // clearCoat counts as dialectric
-                        if (diffuseCount == 0 && !firstTypeWasDialectric)
+                        if (Math.random() < P)
                         {
-                                firstTypeWasDialectric = true;
-                                // create secondary REFLECTION ray for a future reflection trace
-                                secondaryRayOrigin.copy(rayOrigin);
-                                secondaryRayOrigin.add(tempNormal);
-                                secondaryRayDirection.copy(rayDirection);
-                                secondaryRayDirection.reflect(nl);
-                                secondaryRayDirection.normalize();
-                                secondaryColorMask.copy(colorMask);
-                                secondaryColorMask.multScalar(Re);
+                                colorMask.multScalar(RP);
 
-                                colorMask.multScalar(Tr);
-                        }
-                        
-                        
-                        diffuseCount++;
-
-                        colorMask.mul(hitRecord.color);
-
-                        //colorMask.multScalar(2);
-
-                        bounceIsSpecular = false;
-                        
-                        if (bounces == 0 && Math.random() < 0.5)
-                        {
-                                // choose random Diffuse sample vector
                                 rayOrigin.add(tempNormal);
-                                rayDirection.randomCosWeightedDirectionInHemisphere(nl);
+                                rayDirection.reflect(nl);
                                 rayDirection.normalize();
                                 continue;
                         }
-                        else
-                        {
-                                // send shadow ray
-                                rayOrigin.add(tempNormal);
-                                rayDirection.copy(sunDirection);
-                                rayDirection.normalize();
-                                colorMask.multScalar(Math.max(0.0, rayDirection.dot(nl)));
-                                sampleLight = true;
-                                continue;
-                        }
-                        
 
-                } // end if (hitRecord.type == DIALECTRIC)
+                        colorMask.multScalar(TP);
+			
+
+			// evaluate lighting model at this point on surface
+
+			// ambient contribution
+			ambientColor.copy(hitRecord.color);
+			ambientColor.mul(colorMask);
+			ambientColor.mul(skyColor);
+			ambientColor.multScalar(0.3);
+			// diffuse contribution
+			diffuseColor.copy(hitRecord.color);
+			diffuseColor.mul(colorMask);
+			diffuseColor.mul(sunColor);
+			// apply Lambertian lighting (N dot L)
+			accumulatedColor.mix(ambientColor, diffuseColor, nl.dot(sunDirection));
+
+			// create shadow ray
+			rayOrigin.add(tempNormal);
+			rayDirection.copy(sunDirection);
+			rayDirection.normalize();
+
+			bounceIsSpecular = false;
+
+			sampleLight = true;
+
+			continue;
+
+                } // end if (hitRecord.type == TRANSPARENT)
 
         } // end for (let bounces = 0; bounces < MAX_BOUNCES; bounces++)
 
@@ -789,19 +664,24 @@ function getPixelColor()
         // loop over every pixel on the canvas all the way from the top left to the bottom right
         for (let i = 0; i < imageData.data.length; i += 4) 
         {      
- 
-                u = (((i * 0.25) % canvasWidth) * invWidth) * 2.0 - 1.0;
-                // left side of image is -1, middle is 0, and right is +1 with smooth transition in between
-                v = (Math.floor((i * 0.25) * invWidth) * invHeight) * 2.0 - 1.0;
-                v *= -1.0;// flip Y(v) coordinates, bottom of image is now -1, middle is 0, and top is +1 with smooth transition
+                u = (i / 4) % canvas.width * invWidth;
+                u = u * 2 - 1;
+                // now, left side of image is -1, middle is 0, and right is +1 with smooth transition in between
+                
+                v = (i / 4) / canvas.height * invWidth;
+                v = v * 2 - 1;
+                v *= -1;// flip Y(v) coordinates
+                // now, bottom of image is -1, middle is 0, and top is +1 with smooth transition
 
+                // calculate random pixel offset (anti-aliasing)
                 pixelOffsetX = tentFilter(Math.random());
                 pixelOffsetY = tentFilter(Math.random());
-                pixelOffsetX /= (canvasWidth);
-                pixelOffsetY /= (canvasHeight);
+                pixelOffsetX /= (canvas.width * 0.5);
+                pixelOffsetY /= (canvas.height * 0.5);
 
                 u += pixelOffsetX;
-                v += pixelOffsetY;
+                v += pixelOffsetY; 
+
 
                 // construct ray for this particular pixel (u,v)
                 rayOrigin.copy(cameraOrigin);
@@ -824,7 +704,7 @@ function getPixelColor()
 
                 pixelColor.multScalar(1.0 / (sampleCount + 1));
 
-                // apply Reinhard tonemapping
+                // apply Reinhard tonemapping (brings unbounded linear color values into 0-1 range)
                 colorPlusOne.set(1.0 + pixelColor.x, 1.0 + pixelColor.y, 1.0 + pixelColor.z);
                 inverseColor.set(1.0 / colorPlusOne.x, 1.0 / colorPlusOne.y, 1.0 / colorPlusOne.z);
                 pixelColor.mul(inverseColor);
@@ -837,7 +717,14 @@ function getPixelColor()
                 // do gamma correction
                 pixelColor.set(Math.pow(pixelColor.x, 0.4545), Math.pow(pixelColor.y, 0.4545), Math.pow(pixelColor.z, 0.4545)); 
 
-                
+		/* // test screen uv pattern
+                u = u * 0.5 + 0.5;
+                v = v * 0.5 + 0.5;
+                imageData.data[i + 0] = u * Math.abs(Math.sin(sampleCount * 0.1)) * 255;// pixelColor.x * 255; // red
+                imageData.data[i + 1] = u * Math.abs(Math.cos(sampleCount * 0.1)) * 255;// pixelColor.y * 255; // green
+                imageData.data[i + 2] = v * Math.abs(Math.sin((sampleCount + 5) * 0.05)) * 255// pixelColor.z * 255; // blue
+                imageData.data[i + 3] = 255; // alpha */
+
                 imageData.data[i + 0] = pixelColor.x * 255; // red
                 imageData.data[i + 1] = pixelColor.y * 255; // green
                 imageData.data[i + 2] = pixelColor.z * 255; // blue
@@ -847,6 +734,7 @@ function getPixelColor()
         ctx.putImageData(imageData, 0, 0);
         sampleCount++;
 }
+
 
 function animate() 
 {
