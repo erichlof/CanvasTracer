@@ -9,9 +9,9 @@ let ratioIoR = 0;
 
 function vec3(x, y, z)
 {
-        this.x = x || 0.0;
-        this.y = y || 0.0;
-        this.z = z || 0.0;     
+	this.x = x || 0.0;
+	this.y = y || 0.0;
+	this.z = z || 0.0;     
 }
 
 let tempVec = new vec3();
@@ -20,44 +20,51 @@ let L = new vec3();
 
 vec3.prototype.set = function(x, y, z)
 {
-        this.x = x;
-        this.y = y;
-        this.z = z;
+	this.x = x;
+	this.y = y;
+	this.z = z;
 };
 
 vec3.prototype.copy = function(otherVec)
 {
-        this.x = otherVec.x;
-        this.y = otherVec.y;
-        this.z = otherVec.z;
+	this.x = otherVec.x;
+	this.y = otherVec.y;
+	this.z = otherVec.z;
 };
 
 vec3.prototype.add = function(otherVec)
 {
-        this.x += otherVec.x;
-        this.y += otherVec.y;
-        this.z += otherVec.z;
+	this.x += otherVec.x;
+	this.y += otherVec.y;
+	this.z += otherVec.z;
 };
 
 vec3.prototype.sub = function(otherVec)
 {
-        this.x -= otherVec.x;
-        this.y -= otherVec.y;
-        this.z -= otherVec.z;
+	this.x -= otherVec.x;
+	this.y -= otherVec.y;
+	this.z -= otherVec.z;
 };
 
 vec3.prototype.mul = function(otherVec)
 {
-        this.x *= otherVec.x;
-        this.y *= otherVec.y;
-        this.z *= otherVec.z;
+	this.x *= otherVec.x;
+	this.y *= otherVec.y;
+	this.z *= otherVec.z;
 };
 
 vec3.prototype.multScalar = function(scalarNumber)
 {
-        this.x *= scalarNumber;
-        this.y *= scalarNumber;
-        this.z *= scalarNumber;
+	this.x *= scalarNumber;
+	this.y *= scalarNumber;
+	this.z *= scalarNumber;
+};
+
+vec3.prototype.negate = function ()
+{
+	this.x *= -1;
+	this.y *= -1;
+	this.z *= -1;
 };
 
 vec3.prototype.mix = function(vecA, vecB, amount)
@@ -71,60 +78,62 @@ vec3.prototype.mix = function(vecA, vecB, amount)
 
 vec3.prototype.squaredLength = function()
 {
-        return (this.x * this.x) + (this.y + this.y) + (this.z * this.z);
+	return (this.x * this.x) + (this.y + this.y) + (this.z * this.z);
 };
 
 vec3.prototype.magnitude = function()
 {
-        return Math.hypot(this.x, this.y, this.z);
+	return Math.hypot(this.x, this.y, this.z);
 };
 
 vec3.prototype.normalize = function()
 {
-        inverseMag = 1.0 / this.magnitude();
-        this.x *= inverseMag;
-        this.y *= inverseMag;
-        this.z *= inverseMag;
+	inverseMag = 1.0 / this.magnitude();
+	this.x *= inverseMag;
+	this.y *= inverseMag;
+	this.z *= inverseMag;
 };
 
 vec3.prototype.distanceTo = function(otherVec)
 {
-        tempVec.copy(otherVec);
-        tempVec.sub(this);
-        return tempVec.magnitude();
+	tempVec.copy(otherVec);
+	tempVec.sub(this);
+	return tempVec.magnitude();
 };
 
 vec3.prototype.dot = function(otherVec)
 {
-        return (this.x * otherVec.x) + (this.y * otherVec.y) + (this.z * otherVec.z);
+	return (this.x * otherVec.x) + (this.y * otherVec.y) + (this.z * otherVec.z);
 };
 
 vec3.prototype.crossVectors = function(vecA, vecB)
 {
-        this.x = (vecA.y * vecB.z) - (vecA.z * vecB.y);
-        this.y = (vecA.z * vecB.x) - (vecA.x * vecB.z);
-        this.z = (vecA.x * vecB.y) - (vecA.y * vecB.x);
+	this.x = (vecA.y * vecB.z) - (vecA.z * vecB.y);
+	this.y = (vecA.z * vecB.x) - (vecA.x * vecB.z);
+	this.z = (vecA.x * vecB.y) - (vecA.y * vecB.x);
 };
 
 vec3.prototype.reflect = function(surfaceNormal)
 {
-        surfaceNormal.normalize();
-        sN.copy(surfaceNormal);
-        sN.multScalar(2 * this.dot(surfaceNormal));
-        this.sub(sN);
+	// R = I + (N * 2 * -IdotN)
+	surfaceNormal.normalize();
+	sN.copy(surfaceNormal);
+	sN.multScalar(2 * -this.dot(surfaceNormal));
+	this.add(sN);
 };
 
 let IdotN = 0.0;
 let k = 0.0;
 vec3.prototype.refract = function(surfaceNormal, eta)
 {
-        surfaceNormal.normalize();
-        sN.copy(surfaceNormal);
-        IdotN = this.dot(surfaceNormal);
-        k = 1.0 - (eta * eta) * (1.0 - (IdotN * IdotN));
-        sN.multScalar(eta * IdotN + Math.sqrt(k));
-        this.multScalar(eta);
-        this.sub(sN);
+	// T = eta * I + (N * eta * -IdotN - sqrt(1 - (eta * eta * (1 - IdotN * IdotN))))
+	surfaceNormal.normalize();
+	sN.copy(surfaceNormal);
+	IdotN = -this.dot(surfaceNormal);
+	k = (eta * eta) * (1 - IdotN * IdotN);
+	sN.multScalar(eta * IdotN - Math.sqrt(1 - k));
+	this.multScalar(eta);
+	this.add(sN);
 };
 
 let temp = 0.0;
@@ -156,11 +165,24 @@ function calcFresnelReflectance(rayDirection, n, etai, etat)
 	return ((Rs * Rs) + (Rp * Rp)) * 0.5;
 }
 
+let halfDir = new vec3();
+let specAngle = 0;
+function calcBlinnPhongReflection(rayDirection, normal, shininessExp)
+{
+	halfDir.copy(rayDirection);
+	halfDir.negate();
+	halfDir.add(sunDirection);
+	halfDir.normalize();
+	
+	specAngle = Math.max(0.0, halfDir.dot(normal));
+	specularColor.multScalar(Math.pow(specAngle, shininessExp));
+}
+
+
 function tentFilter(x)
 {
 	return (x < 0.5) ? Math.sqrt(2.0 * x) - 1.0 : 1.0 - Math.sqrt(2.0 - (2.0 * x));
 }
-
 
 
 
@@ -169,31 +191,31 @@ function solveQuadratic(A, B, C)
 	discrim = (B * B) - 4.0 * (A * C);
     
 	if (discrim < 0.0)
-        	return false;
+		return false;
     
 	rootDiscrim = Math.sqrt(discrim);
 
 	Q = (B > 0.0) ? -0.5 * (B + rootDiscrim) : -0.5 * (B - rootDiscrim); 
 	
-        t0 = C / Q;
-        t1 = Q / A;
+	t0 = C / Q;
+	t1 = Q / A;
 	
 	return true;
 }
 
 function SphereIntersect( radius, position, rayOrigin, rayDirection )
 {
-        t0 = 0;
-        t1 = 0;
+	t0 = 0;
+	t1 = 0;
 
-        L.copy(rayOrigin);
+	L.copy(rayOrigin);
 	L.sub(position);
 	a = rayDirection.dot(rayDirection);
 	b = 2.0 * rayDirection.dot(L);
 	c = L.dot(L) - (radius * radius);
-        
-        if ( !solveQuadratic(a, b, c) )
-                return Infinity;
+	
+	if ( !solveQuadratic(a, b, c) )
+		return Infinity;
 
 	if (t0 > 0.0)
 		return t0;
@@ -215,12 +237,12 @@ function PlaneIntersect( planeNormal, d, rayOrigin, rayDirection )
 
 	// uncomment the following if single-sided plane is desired
 	//if (denom >= 0.0) return Infinity;
-        
-        scaledNormal.copy(planeNormal);
-        scaledNormal.multScalar(d);
-        pOrO.copy(scaledNormal);
-        pOrO.sub(rayOrigin); 
-        result = pOrO.dot(planeNormal) / denom;
+	
+	scaledNormal.copy(planeNormal);
+	scaledNormal.multScalar(d);
+	pOrO.copy(scaledNormal);
+	pOrO.sub(rayOrigin); 
+	result = pOrO.dot(planeNormal) / denom;
 	return (result > 0.0) ? result : Infinity;
 }
 
@@ -242,7 +264,7 @@ let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 let pixelMemory = [];
 for (let i = 0; i < imageData.data.length; i += 4) 
 {
-        pixelMemory[i] = new vec3();
+	pixelMemory[i] = new vec3();
 }
 
 let u = 0;
@@ -355,153 +377,165 @@ function onWindowResize(event)
 
 function sceneIntersect(rayOrigin, rayDirection)
 {
-        hitRecord.t = Infinity;
-        d = Infinity;
+	hitRecord.t = Infinity;
+	d = Infinity;
 
-        d = SphereIntersect(metalSphereRad, metalSpherePos, rayOrigin, rayDirection);
-        if (d < hitRecord.t)
-        {
-                hitRecord.t = d;
-                hitRecord.color.set(1.0, 0.8, 0.2);
-                tempDir.copy(rayDirection);
-                tempDir.multScalar(hitRecord.t);
-                hitPoint.copy(rayOrigin);
-                hitPoint.add(tempDir);
-                hitRecord.normal.copy(hitPoint);
-                hitRecord.normal.sub(metalSpherePos);
-                hitRecord.normal.normalize();
-                hitRecord.type = METAL;
-        }
+	d = SphereIntersect(metalSphereRad, metalSpherePos, rayOrigin, rayDirection);
+	if (d < hitRecord.t)
+	{
+		hitRecord.t = d;
+		hitRecord.color.set(1.0, 0.8, 0.2);
+		tempDir.copy(rayDirection);
+		tempDir.multScalar(hitRecord.t);
+		hitPoint.copy(rayOrigin);
+		hitPoint.add(tempDir);
+		hitRecord.normal.copy(hitPoint);
+		hitRecord.normal.sub(metalSpherePos);
+		hitRecord.normal.normalize();
+		hitRecord.type = METAL;
+	}
 
-        d = SphereIntersect(diffuseSphereRad, diffuseSpherePos, rayOrigin, rayDirection);
-        if (d < hitRecord.t)
-        {
-                hitRecord.t = d;
-                hitRecord.color.set(1, 0, 0);
-                tempDir.copy(rayDirection);
-                tempDir.multScalar(hitRecord.t);
-                hitPoint.copy(rayOrigin);
-                hitPoint.add(tempDir);
-                hitRecord.normal.copy(hitPoint);
-                hitRecord.normal.sub(diffuseSpherePos);
-                hitRecord.normal.normalize();
-                hitRecord.type = DIFFUSE;
-        }
+	d = SphereIntersect(diffuseSphereRad, diffuseSpherePos, rayOrigin, rayDirection);
+	if (d < hitRecord.t)
+	{
+		hitRecord.t = d;
+		hitRecord.color.set(1, 0, 0);
+		tempDir.copy(rayDirection);
+		tempDir.multScalar(hitRecord.t);
+		hitPoint.copy(rayOrigin);
+		hitPoint.add(tempDir);
+		hitRecord.normal.copy(hitPoint);
+		hitRecord.normal.sub(diffuseSpherePos);
+		hitRecord.normal.normalize();
+		hitRecord.type = DIFFUSE;
+	}
 
-        d = SphereIntersect(glassSphereRad, glassSpherePos, rayOrigin, rayDirection);
-        if (d < hitRecord.t)
-        {
-                hitRecord.t = d;
-                hitRecord.color.set(0.6, 1.0, 0.9);
-                tempDir.copy(rayDirection);
-                tempDir.multScalar(hitRecord.t);
-                hitPoint.copy(rayOrigin);
-                hitPoint.add(tempDir);
-                hitRecord.normal.copy(hitPoint);
-                hitRecord.normal.sub(glassSpherePos);
-                hitRecord.normal.normalize();
-                hitRecord.type = TRANSPARENT;
-        }
+	d = SphereIntersect(glassSphereRad, glassSpherePos, rayOrigin, rayDirection);
+	if (d < hitRecord.t)
+	{
+		hitRecord.t = d;
+		hitRecord.color.set(0.6, 1.0, 0.9);
+		tempDir.copy(rayDirection);
+		tempDir.multScalar(hitRecord.t);
+		hitPoint.copy(rayOrigin);
+		hitPoint.add(tempDir);
+		hitRecord.normal.copy(hitPoint);
+		hitRecord.normal.sub(glassSpherePos);
+		hitRecord.normal.normalize();
+		hitRecord.type = TRANSPARENT;
+	}
 
-        d = SphereIntersect(coatSphereRad, coatSpherePos, rayOrigin, rayDirection);
-        if (d < hitRecord.t)
-        {
-                hitRecord.t = d;
-                hitRecord.color.set(0.0, 0.0, 1.0);
-                tempDir.copy(rayDirection);
-                tempDir.multScalar(hitRecord.t);
-                hitPoint.copy(rayOrigin);
-                hitPoint.add(tempDir);
-                hitRecord.normal.copy(hitPoint);
-                hitRecord.normal.sub(coatSpherePos);
-                hitRecord.normal.normalize();
-                hitRecord.type = CLEARCOAT;
-        }
+	d = SphereIntersect(coatSphereRad, coatSpherePos, rayOrigin, rayDirection);
+	if (d < hitRecord.t)
+	{
+		hitRecord.t = d;
+		hitRecord.color.set(0.0, 0.0, 1.0);
+		tempDir.copy(rayDirection);
+		tempDir.multScalar(hitRecord.t);
+		hitPoint.copy(rayOrigin);
+		hitPoint.add(tempDir);
+		hitRecord.normal.copy(hitPoint);
+		hitRecord.normal.sub(coatSpherePos);
+		hitRecord.normal.normalize();
+		hitRecord.type = CLEARCOAT;
+	}
 
-        d = PlaneIntersect(planeNormal, planeD, rayOrigin, rayDirection);
-        if (d < hitRecord.t)
-        {
-                hitRecord.t = d;
-                hitRecord.color.set(1, 1, 1);
-                tempDir.copy(rayDirection);
-                tempDir.multScalar(hitRecord.t);
-                //hitPoint.copy(rayOrigin);
-                //hitPoint.add(tempDir);
-                hitRecord.normal.copy(planeNormal);
-                hitRecord.normal.normalize();
-                hitRecord.type = CHECKER;
-        }
+	d = PlaneIntersect(planeNormal, planeD, rayOrigin, rayDirection);
+	if (d < hitRecord.t)
+	{
+		hitRecord.t = d;
+		hitRecord.color.set(1, 1, 1);
+		tempDir.copy(rayDirection);
+		tempDir.multScalar(hitRecord.t);
+		//hitPoint.copy(rayOrigin);
+		//hitPoint.add(tempDir);
+		hitRecord.normal.copy(planeNormal);
+		hitRecord.normal.normalize();
+		hitRecord.type = CHECKER;
+	}
 
-        return hitRecord;
+	return hitRecord;
 }
 
 function rayTrace(rayOrigin, rayDirection)
 {
-        accumulatedColor.set(0, 0, 0);
-        colorMask.set(1, 1, 1);
-        bounceIsSpecular = true;
-        sampleLight = false;
+	accumulatedColor.set(0, 0, 0);
+	colorMask.set(1, 1, 1);
+	bounceIsSpecular = true;
+	sampleLight = false;
 
-        for (let bounces = 0; bounces < MAX_BOUNCES; bounces++)
-        {
-                hitRecord = sceneIntersect(rayOrigin, rayDirection);
+	for (let bounces = 0; bounces < MAX_BOUNCES; bounces++)
+	{
+		hitRecord = sceneIntersect(rayOrigin, rayDirection);
 
-                if (hitRecord.t == Infinity)
-                {
-                        if (bounces == 0 || bounceIsSpecular)
-                        {
-                                accumulatedColor.copy(colorMask);
-                                accumulatedColor.mul(skyColor);
-                        }
+		if (hitRecord.t == Infinity)
+		{
+			if (bounceIsSpecular)
+			{
+				accumulatedColor.copy(colorMask);
+				accumulatedColor.mul(skyColor);
+				accumulatedColor.add(specularColor);
+			}
 
-                        break;        
-                }
+			if (bounces == 0)
+			{
+				accumulatedColor.copy(skyColor);
+			}
+			
+
+			break;        
+		}
 
 
-                // if we reached this point and sampleLight is still true, this means that the shadow ray 
-                //  intersected another scene object before it could reach the light source, so exit
-                if (sampleLight)
-                {	
+		// if we reached this point and sampleLight is still true, this means that the shadow ray 
+		//  intersected another scene object before it could reach the light source, so exit
+		if (sampleLight)
+		{	
 			accumulatedColor.copy(ambientColor);
-                        break; // this exit leaves a shadow
-                }
+			break; // this exit leaves a shadow
+		}
 
-                // useful data 
-                n.copy(hitRecord.normal);
-                n.normalize();
-                nl.copy(n);
-                if (rayDirection.dot(n) >= 0.0)
-                        nl.multScalar(-1);
+		// useful data 
+		n.copy(hitRecord.normal);
+		n.normalize();
+		nl.copy(n);
+		if (rayDirection.dot(n) >= 0.0)
+			nl.multScalar(-1);
 
-                // calculate intersection point
-                tempDir.copy(rayDirection);
-                tempDir.multScalar(hitRecord.t);
-                rayOrigin.add(tempDir); // ray origin is now located at the intersection point
-                tempNormal.copy(nl);
-                tempNormal.multScalar(0.01);
+		// calculate intersection point
+		tempDir.copy(rayDirection);
+		tempDir.multScalar(hitRecord.t);
+		rayOrigin.add(tempDir); // ray origin is now located at the intersection point
+		tempNormal.copy(nl);
+		tempNormal.multScalar(0.01);
 
 
-                if (hitRecord.type == CHECKER)
-                {
-                        // create checker pattern
-                        //if ( Math.abs( Math.floor(rayOrigin.x * checkScale) ) % 2 + Math.abs( Math.floor(rayOrigin.z * checkScale) ) % 2 == 1 )
-                        if ( Math.sin((rayOrigin.x * checkScale)) > -0.98 && Math.sin((rayOrigin.z * checkScale)) > -0.98 )    
-                                hitRecord.color.copy(checkColor1);
-                        else hitRecord.color.copy(checkColor2);
-
-			// evaluate lighting model at this point on surface
-
-			// ambient contribution
+		if (hitRecord.type == CHECKER)
+		{
+			// create checker pattern
+			//if ( Math.abs( Math.floor(rayOrigin.x * checkScale) ) % 2 + Math.abs( Math.floor(rayOrigin.z * checkScale) ) % 2 == 1 )
+			if ( Math.sin((rayOrigin.x * checkScale)) > -0.98 && Math.sin((rayOrigin.z * checkScale)) > -0.98 )    
+				hitRecord.color.copy(checkColor1);
+			else hitRecord.color.copy(checkColor2);
+			
+			colorMask.mul(hitRecord.color);
+			
+			// ambient
 			ambientColor.copy(hitRecord.color);
 			ambientColor.mul(colorMask);
 			ambientColor.mul(skyColor);
 			ambientColor.multScalar(0.3);
-			// diffuse contribution
+			// diffuse
 			diffuseColor.copy(hitRecord.color);
 			diffuseColor.mul(colorMask);
 			diffuseColor.mul(sunColor);
-			// apply Lambertian lighting (N dot L)
-			accumulatedColor.mix(ambientColor, diffuseColor, nl.dot(sunDirection));
+			// specular - none
+			specularColor.set(0, 0, 0);
+
+			// evaluate Blinn-Phong reflection model at this surface point
+			calcBlinnPhongReflection(rayDirection, nl, 0);
+			accumulatedColor.mix(ambientColor, diffuseColor, Math.max(0, nl.dot(sunDirection)));
+			accumulatedColor.add(specularColor);
 
 			// create shadow ray
 			rayOrigin.add(tempNormal);
@@ -513,116 +547,150 @@ function rayTrace(rayOrigin, rayDirection)
 			sampleLight = true;
 
 			continue;
-                }
+		}
 
-                if (hitRecord.type == DIFFUSE)
-                { 
-			// evaluate lighting model at this point on surface
+		if (hitRecord.type == DIFFUSE)
+		{ 
+			colorMask.mul(hitRecord.color);
 
-			// ambient contribution
+			// ambient
 			ambientColor.copy(hitRecord.color);
 			ambientColor.mul(colorMask);
 			ambientColor.mul(skyColor);
 			ambientColor.multScalar(0.3);
-			// diffuse contribution
+			// diffuse
 			diffuseColor.copy(hitRecord.color);
 			diffuseColor.mul(colorMask);
 			diffuseColor.mul(sunColor);
-			// apply Lambertian lighting (N dot L)
-			accumulatedColor.mix(ambientColor, diffuseColor, nl.dot(sunDirection));
+			// specular
+			specularColor.copy(sunColor);
+
+			// evaluate Blinn-Phong reflection model at this surface point
+			calcBlinnPhongReflection(rayDirection, nl, 1000);
+			accumulatedColor.mix(ambientColor, diffuseColor, Math.max(0, nl.dot(sunDirection)));
+			accumulatedColor.add(specularColor);
 			
 			// create shadow ray
-                        rayOrigin.add(tempNormal);
-                        rayDirection.copy(sunDirection);
-                        rayDirection.normalize();
+			rayOrigin.add(tempNormal);
+			rayDirection.copy(sunDirection);
+			rayDirection.normalize();
 
 			bounceIsSpecular = false;
 
-                        sampleLight = true;
+			sampleLight = true;
 
-                        continue;
-                }
+			continue;
+		}
 
-                if (hitRecord.type == METAL)
-                { 
-                        colorMask.mul(hitRecord.color);
+		if (hitRecord.type == METAL)
+		{ 
+			colorMask.mul(hitRecord.color);
 
-                        rayOrigin.add(tempNormal); // nudge ray out from surface a tiny bit along surface normal
-                        // the above is needed to prevent self-intersection with previously intersected surface
+			// specular contribution
+			specularColor.copy(sunColor);
 
-                        rayDirection.reflect(nl); // create reflection ray
-                        rayDirection.normalize();
+			// evaluate Blinn-Phong reflection model at this surface point
+			calcBlinnPhongReflection(rayDirection, nl, 1000);
 
-                        continue; 
-                }
+			rayOrigin.add(tempNormal); // nudge ray out from surface a tiny bit along surface normal
+			// the above is needed to prevent self-intersection with previously intersected surface
 
-                if (hitRecord.type == TRANSPARENT)
-                { 
-                        nc = 1.0; // IOR of Air
+			rayDirection.reflect(nl); // create reflection ray
+			rayDirection.normalize();
+
+			continue; 
+		}
+
+		if (hitRecord.type == TRANSPARENT)
+		{ 
+			nc = 1.0; // IOR of Air
 			nt = 1.5; // IOR of common Glass
-                        Re = calcFresnelReflectance(rayDirection, n, nc, nt);
-                        Tr = 1.0 - Re;
-                        P = 0.25 + (0.5 * Re);
-                        RP = Re / P;
-                        TP = Tr / (1.0 - P);
+			Re = calcFresnelReflectance(rayDirection, n, nc, nt);
+			Tr = 1.0 - Re;
+			P = 0.25 + (0.5 * Re);
+			RP = Re / P;
+			TP = Tr / (1.0 - P);
 
-                        if (Math.random() < P)
-                        {
-                                colorMask.multScalar(RP);
+			if (Math.random() < P)
+			{
+				colorMask.multScalar(RP);
 
-                                rayOrigin.add(tempNormal);
-                                rayDirection.reflect(nl);
-                                rayDirection.normalize();
-                                continue;
-                        }
-                        
-                        // REFRACT (Transmit)
-                        colorMask.multScalar(TP);
-                        colorMask.mul(hitRecord.color);
+				// specular contribution
+				specularColor.copy(sunColor);
+				//specularColor.multScalar(RP);
 
-                        rayOrigin.sub(tempNormal);
-                        rayDirection.refract(nl, ratioIoR);
-                        rayDirection.normalize();
+				// evaluate Blinn-Phong reflection model at this surface point
+				calcBlinnPhongReflection(rayDirection, nl, 1000);
 
-                        continue; 
-                } // end if (hitRecord.type == TRANSPARENT)
+				rayOrigin.add(tempNormal);
+				rayDirection.reflect(nl);
+				rayDirection.normalize();
+				continue;
+			}
+			
+			// REFRACT (Transmit)
+			colorMask.multScalar(TP);
+			colorMask.mul(hitRecord.color);
 
-                if (hitRecord.type == CLEARCOAT)
-                { 
-                        nc = 1.0; // IOR of Air
+			// specular contribution
+			specularColor.copy(sunColor);
+
+			// evaluate Blinn-Phong reflection model at this surface point
+			calcBlinnPhongReflection(rayDirection, nl, 1000);
+
+			rayOrigin.sub(tempNormal);
+			rayDirection.refract(nl, ratioIoR);
+			rayDirection.normalize();
+
+			continue; 
+		} // end if (hitRecord.type == TRANSPARENT)
+
+		if (hitRecord.type == CLEARCOAT)
+		{ 
+			nc = 1.0; // IOR of Air
 			nt = 1.4; // IOR of clearCoat
-                        Re = calcFresnelReflectance(rayDirection, n, nc, nt);
-                        Tr = 1.0 - Re;
-                        P = 0.25 + (0.5 * Re);
-                        RP = Re / P;
-                        TP = Tr / (1.0 - P);
+			Re = calcFresnelReflectance(rayDirection, nl, nc, nt);
+			Tr = 1.0 - Re;
+			P = 0.25 + (0.5 * Re);
+			RP = Re / P;
+			TP = Tr / (1.0 - P);
 
-                        if (Math.random() < P)
-                        {
-                                colorMask.multScalar(RP);
+			if (Math.random() < P)
+			{
+				colorMask.multScalar(RP);
 
-                                rayOrigin.add(tempNormal);
-                                rayDirection.reflect(nl);
-                                rayDirection.normalize();
-                                continue;
-                        }
+				// specular contribution
+				specularColor.copy(sunColor);
+				//specularColor.multScalar(RP);
 
-                        colorMask.multScalar(TP);
+				// evaluate Blinn-Phong reflection model at this surface point
+				calcBlinnPhongReflection(rayDirection, nl, 1000);
+
+				rayOrigin.add(tempNormal);
+				rayDirection.reflect(nl);
+				rayDirection.normalize();
+				continue;
+			}
+
+			colorMask.multScalar(TP);
 			
 
-			// evaluate lighting model at this point on surface
-
-			// ambient contribution
+			// ambient
 			ambientColor.copy(hitRecord.color);
 			ambientColor.mul(colorMask);
 			ambientColor.mul(skyColor);
 			ambientColor.multScalar(0.3);
-			// diffuse contribution
+			// diffuse
 			diffuseColor.copy(hitRecord.color);
 			diffuseColor.mul(colorMask);
 			diffuseColor.mul(sunColor);
-			// apply Lambertian lighting (N dot L)
-			accumulatedColor.mix(ambientColor, diffuseColor, nl.dot(sunDirection));
+			// specular
+			specularColor.copy(sunColor);
+
+			// evaluate Blinn-Phong reflection model at this surface point
+			calcBlinnPhongReflection(rayDirection, nl, 1000);
+			accumulatedColor.mix(ambientColor, diffuseColor, Math.max(0, nl.dot(sunDirection)));
+			accumulatedColor.add(specularColor);
 
 			// create shadow ray
 			rayOrigin.add(tempNormal);
@@ -635,114 +703,110 @@ function rayTrace(rayOrigin, rayDirection)
 
 			continue;
 
-                } // end if (hitRecord.type == CLEARCOAT)
+		} // end if (hitRecord.type == CLEARCOAT)
 
-        } // end for (let bounces = 0; bounces < MAX_BOUNCES; bounces++)
+	} // end for (let bounces = 0; bounces < MAX_BOUNCES; bounces++)
 
-        return accumulatedColor;
+	return accumulatedColor;
 } // end function rayTrace(rayOrigin, rayDirection)
 
 
 function getPixelColor()
 {
-        // construct 'lookAt' camera frame
-        cameraForwardVec.copy(cameraOrigin);
-        cameraForwardVec.sub(cameraTarget);
-        cameraForwardVec.normalize();
-        cameraRightVec.crossVectors(worldUpVector, cameraForwardVec);
-        cameraRightVec.normalize();
-        cameraUpVec.crossVectors(cameraForwardVec, cameraRightVec);
-        cameraUpVec.normalize();
-        // the camera's forward vec needed to be constructed from the camera target pointing towards the camera location
-        // for generating the mathematically correct orthonormal basis of the camera.  But the actual ray direction needs to
-        // point in the opposite direction, in other words from the camera location pointing towards the camera target
-        cameraForwardVec.multScalar(-1); // flip it to opposite direction
-        cameraForwardVec.normalize();
+	// construct 'lookAt' camera frame
+	cameraForwardVec.copy(cameraOrigin);
+	cameraForwardVec.sub(cameraTarget);
+	cameraForwardVec.normalize();
+	cameraRightVec.crossVectors(worldUpVector, cameraForwardVec);
+	cameraRightVec.normalize();
+	cameraUpVec.crossVectors(cameraForwardVec, cameraRightVec);
+	cameraUpVec.normalize();
+	// the camera's forward vec needed to be constructed from the camera target pointing towards the camera location
+	// for generating the mathematically correct orthonormal basis of the camera.  But the actual ray direction needs to
+	// point in the opposite direction, in other words from the camera location pointing towards the camera target
+	cameraForwardVec.multScalar(-1); // flip it to opposite direction
+	cameraForwardVec.normalize();
 
-        imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        
-        // loop over every pixel on the canvas all the way from the top left to the bottom right
-        for (let i = 0; i < imageData.data.length; i += 4) 
-        {      
-                u = (i / 4) % canvas.width * invWidth;
-                u = u * 2 - 1;
-                // now, left side of image is -1, middle is 0, and right is +1 with smooth transition in between
-                
-                v = (i / 4) / canvas.height * invWidth;
-                v = v * 2 - 1;
-                v *= -1;// flip Y(v) coordinates
-                // now, bottom of image is -1, middle is 0, and top is +1 with smooth transition
-
-                // calculate random pixel offset (anti-aliasing)
-                pixelOffsetX = tentFilter(Math.random());
-                pixelOffsetY = tentFilter(Math.random());
-                pixelOffsetX /= (canvas.width * 0.5);
-                pixelOffsetY /= (canvas.height * 0.5);
-
-                u += pixelOffsetX;
-                v += pixelOffsetY; 
-
-
-                // construct ray for this particular pixel (u,v)
-                rayOrigin.copy(cameraOrigin);
-
-                tempRightVec.copy(cameraRightVec);
-                tempRightVec.multScalar(u);
-                tempRightVec.multScalar(uLen);
-                tempUpVec.copy(cameraUpVec);
-                tempUpVec.multScalar(v);
-                tempUpVec.multScalar(vLen);
-                
-                rayDirection.copy(cameraForwardVec);
-                rayDirection.add(tempRightVec);
-                rayDirection.add(tempUpVec);
-                rayDirection.normalize();
-
-                // calculate this pixel's color through ray tracing
-                pixelMemory[i].add(rayTrace(rayOrigin, rayDirection));
-                pixelColor.copy(pixelMemory[i]);
-
-                pixelColor.multScalar(1.0 / (sampleCount + 1));
-
-                // apply Reinhard tonemapping (brings unbounded linear color values into 0-1 range)
-                colorPlusOne.set(1.0 + pixelColor.x, 1.0 + pixelColor.y, 1.0 + pixelColor.z);
-                inverseColor.set(1.0 / colorPlusOne.x, 1.0 / colorPlusOne.y, 1.0 / colorPlusOne.z);
-                pixelColor.mul(inverseColor);
-
-                // clamp values to 0-1 range
-                // pixelColor.x = Math.max(0.0, Math.min(1.0, pixelColor.x));
-                // pixelColor.y = Math.max(0.0, Math.min(1.0, pixelColor.y));
-                // pixelColor.z = Math.max(0.0, Math.min(1.0, pixelColor.z));
+	imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 	
-                // do gamma correction
-                pixelColor.set(Math.pow(pixelColor.x, 0.4545), Math.pow(pixelColor.y, 0.4545), Math.pow(pixelColor.z, 0.4545)); 
+	// loop over every pixel on the canvas all the way from the top left to the bottom right
+	for (let i = 0; i < imageData.data.length; i += 4) 
+	{      
+		// calculate random pixel offset (anti-aliasing)
+		pixelOffsetX = tentFilter(Math.random());
+		pixelOffsetY = tentFilter(Math.random());
+
+		u = ( Math.floor((i / 4) % canvas.width) + 0.5 + pixelOffsetX ) * invWidth;
+		u = u * 2 - 1;
+		// now, left side of image is -1, middle is 0, and right is +1 with smooth transition in between
+		
+		v = ( Math.floor((i / 4) / canvas.width) + 0.5 + pixelOffsetY) * invHeight;
+		v = v * 2 - 1;
+		v *= -1;// flip Y(v) coordinates
+		// now, bottom of image is -1, middle is 0, and top is +1 with smooth transition
+
+		 
+		// construct ray that starts at camera origin and goes right through this particular pixel (u,v) on the view plane
+		rayOrigin.copy(cameraOrigin);
+
+		tempRightVec.copy(cameraRightVec);
+		tempRightVec.multScalar(u);
+		tempRightVec.multScalar(uLen);
+
+		tempUpVec.copy(cameraUpVec);
+		tempUpVec.multScalar(v);
+		tempUpVec.multScalar(vLen);
+		
+		rayDirection.copy(cameraForwardVec);
+		rayDirection.add(tempRightVec);
+		rayDirection.add(tempUpVec);
+		rayDirection.normalize();
+
+		// calculate this pixel's color through ray tracing
+		pixelMemory[i].add(rayTrace(rayOrigin, rayDirection));
+		pixelColor.copy(pixelMemory[i]);
+
+		pixelColor.multScalar(1.0 / (sampleCount + 1));
+
+		// apply Reinhard tonemapping (brings unbounded linear color values into 0-1 range)
+		colorPlusOne.set(1.0 + pixelColor.x, 1.0 + pixelColor.y, 1.0 + pixelColor.z);
+		inverseColor.set(1.0 / colorPlusOne.x, 1.0 / colorPlusOne.y, 1.0 / colorPlusOne.z);
+		pixelColor.mul(inverseColor);
+
+		// clamp values to 0-1 range
+		// pixelColor.x = Math.max(0.0, Math.min(1.0, pixelColor.x));
+		// pixelColor.y = Math.max(0.0, Math.min(1.0, pixelColor.y));
+		// pixelColor.z = Math.max(0.0, Math.min(1.0, pixelColor.z));
+	
+		// do gamma correction
+		pixelColor.set(Math.pow(pixelColor.x, 0.4545), Math.pow(pixelColor.y, 0.4545), Math.pow(pixelColor.z, 0.4545)); 
 
 		/* // test screen uv pattern
-                u = u * 0.5 + 0.5;
-                v = v * 0.5 + 0.5;
-                imageData.data[i + 0] = u * Math.abs(Math.sin(sampleCount * 0.1)) * 255;// pixelColor.x * 255; // red
-                imageData.data[i + 1] = u * Math.abs(Math.cos(sampleCount * 0.1)) * 255;// pixelColor.y * 255; // green
-                imageData.data[i + 2] = v * Math.abs(Math.sin((sampleCount + 5) * 0.05)) * 255// pixelColor.z * 255; // blue
-                imageData.data[i + 3] = 255; // alpha */
+		u = u * 0.5 + 0.5;
+		v = v * 0.5 + 0.5;
+		imageData.data[i + 0] = u * Math.abs(Math.sin(sampleCount * 0.1)) * 255;// pixelColor.x * 255; // red
+		imageData.data[i + 1] = u * Math.abs(Math.cos(sampleCount * 0.1)) * 255;// pixelColor.y * 255; // green
+		imageData.data[i + 2] = v * Math.abs(Math.sin((sampleCount + 5) * 0.05)) * 255// pixelColor.z * 255; // blue
+		imageData.data[i + 3] = 255; // alpha */
 
-                imageData.data[i + 0] = pixelColor.x * 255; // red
-                imageData.data[i + 1] = pixelColor.y * 255; // green
-                imageData.data[i + 2] = pixelColor.z * 255; // blue
-                imageData.data[i + 3] = 255;                // alpha
-        }
+		imageData.data[i + 0] = pixelColor.x * 255; // red
+		imageData.data[i + 1] = pixelColor.y * 255; // green
+		imageData.data[i + 2] = pixelColor.z * 255; // blue
+		imageData.data[i + 3] = 255;                // alpha
+	}
 
-        ctx.putImageData(imageData, 0, 0);
-        sampleCount++;
+	ctx.putImageData(imageData, 0, 0);
+	sampleCount++;
 }
 
 
 function animate() 
 {
-        getPixelColor();
-        infoElement.innerHTML = "Samples: " + sampleCount + " / " + MAX_SAMPLE_COUNT;
+	getPixelColor();
+	infoElement.innerHTML = "Samples: " + sampleCount + " / " + MAX_SAMPLE_COUNT;
 
-        if (sampleCount < MAX_SAMPLE_COUNT)
-                requestAnimationFrame(animate);      
+	if (sampleCount < MAX_SAMPLE_COUNT)
+		requestAnimationFrame(animate);      
 }
 
 // start up the progressive rendering!
