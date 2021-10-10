@@ -167,6 +167,10 @@ function calcFresnelReflectance(rayDirection, n, etai, etat)
 
 let halfDir = new vec3();
 let specAngle = 0;
+let specColor = new vec3();
+let ambientContribution = new vec3();
+let diffuseContribution = new vec3();
+let specularContribution = new vec3();
 function calcBlinnPhongReflection(rayDirection, normal, shininessExp)
 {
 	halfDir.copy(rayDirection);
@@ -175,7 +179,10 @@ function calcBlinnPhongReflection(rayDirection, normal, shininessExp)
 	halfDir.normalize();
 	
 	specAngle = Math.max(0.0, halfDir.dot(normal));
-	specularColor.multScalar(Math.pow(specAngle, shininessExp));
+	specColor.copy(specularColor);
+	specColor.multScalar(Math.pow(specAngle, shininessExp));
+
+	specularContribution.add(specColor);
 }
 
 
@@ -460,7 +467,12 @@ function sceneIntersect(rayOrigin, rayDirection)
 function rayTrace(rayOrigin, rayDirection)
 {
 	accumulatedColor.set(0, 0, 0);
+	diffuseColor.set(0, 0, 0);
+	specularColor.set(0, 0, 0);
 	colorMask.set(1, 1, 1);
+	ambientContribution.set(0, 0, 0);
+	diffuseContribution.set(0, 0, 0);
+	specularContribution.set(0, 0, 0);
 	bounceIsSpecular = true;
 	sampleLight = false;
 
@@ -474,15 +486,17 @@ function rayTrace(rayOrigin, rayDirection)
 			{
 				accumulatedColor.copy(colorMask);
 				accumulatedColor.mul(skyColor);
-				accumulatedColor.add(specularColor);
+				accumulatedColor.add(specularContribution);
 			}
-
+			if ( !bounceIsSpecular )
+			{
+				accumulatedColor.add(specularContribution);
+			}
 			if (bounces == 0)
 			{
 				accumulatedColor.copy(skyColor);
 			}
 			
-
 			break;        
 		}
 
@@ -491,7 +505,7 @@ function rayTrace(rayOrigin, rayDirection)
 		//  intersected another scene object before it could reach the light source, so exit
 		if (sampleLight)
 		{	
-			accumulatedColor.copy(ambientColor);
+			accumulatedColor.copy(ambientContribution);
 			break; // this exit leaves a shadow
 		}
 
@@ -510,33 +524,34 @@ function rayTrace(rayOrigin, rayDirection)
 		tempNormal.multScalar(0.01);
 
 
-		if (hitRecord.type == CHECKER)
+		if (hitRecord.type == DIFFUSE || hitRecord.type == CHECKER)
 		{
-			// create checker pattern
-			//if ( Math.abs( Math.floor(rayOrigin.x * checkScale) ) % 2 + Math.abs( Math.floor(rayOrigin.z * checkScale) ) % 2 == 1 )
-			if ( Math.sin((rayOrigin.x * checkScale)) > -0.98 && Math.sin((rayOrigin.z * checkScale)) > -0.98 )    
-				hitRecord.color.copy(checkColor1);
-			else hitRecord.color.copy(checkColor2);
+			if (hitRecord.type == CHECKER)
+			{
+				// create checker pattern
+				//if ( Math.abs( Math.floor(rayOrigin.x * checkScale) ) % 2 + Math.abs( Math.floor(rayOrigin.z * checkScale) ) % 2 == 1 )
+				if (Math.sin((rayOrigin.x * checkScale)) > -0.98 && Math.sin((rayOrigin.z * checkScale)) > -0.98)
+					hitRecord.color.copy(checkColor1);
+				else hitRecord.color.copy(checkColor2);
+			}
 			
 			colorMask.mul(hitRecord.color);
 			
 			// ambient
-			ambientColor.copy(hitRecord.color);
-			ambientColor.mul(colorMask);
+			ambientColor.copy(colorMask);
 			ambientColor.mul(skyColor);
 			ambientColor.multScalar(0.3);
+			ambientContribution.copy(ambientColor);
+
 			// diffuse
-			diffuseColor.copy(hitRecord.color);
-			diffuseColor.mul(colorMask);
+			diffuseColor.copy(colorMask);
 			diffuseColor.mul(sunColor);
+
+			accumulatedColor.mix(ambientColor, diffuseColor, Math.max(0, nl.dot(sunDirection)));
+
 			// specular - none
 			specularColor.set(0, 0, 0);
 
-			// evaluate Blinn-Phong reflection model at this surface point
-			calcBlinnPhongReflection(rayDirection, nl, 0);
-			accumulatedColor.mix(ambientColor, diffuseColor, Math.max(0, nl.dot(sunDirection)));
-			accumulatedColor.add(specularColor);
-
 			// create shadow ray
 			rayOrigin.add(tempNormal);
 			rayDirection.copy(sunDirection);
@@ -549,38 +564,6 @@ function rayTrace(rayOrigin, rayDirection)
 			continue;
 		}
 
-		if (hitRecord.type == DIFFUSE)
-		{ 
-			colorMask.mul(hitRecord.color);
-
-			// ambient
-			ambientColor.copy(hitRecord.color);
-			ambientColor.mul(colorMask);
-			ambientColor.mul(skyColor);
-			ambientColor.multScalar(0.3);
-			// diffuse
-			diffuseColor.copy(hitRecord.color);
-			diffuseColor.mul(colorMask);
-			diffuseColor.mul(sunColor);
-			// specular
-			specularColor.copy(sunColor);
-
-			// evaluate Blinn-Phong reflection model at this surface point
-			calcBlinnPhongReflection(rayDirection, nl, 1000);
-			accumulatedColor.mix(ambientColor, diffuseColor, Math.max(0, nl.dot(sunDirection)));
-			accumulatedColor.add(specularColor);
-			
-			// create shadow ray
-			rayOrigin.add(tempNormal);
-			rayDirection.copy(sunDirection);
-			rayDirection.normalize();
-
-			bounceIsSpecular = false;
-
-			sampleLight = true;
-
-			continue;
-		}
 
 		if (hitRecord.type == METAL)
 		{ 
@@ -617,7 +600,6 @@ function rayTrace(rayOrigin, rayDirection)
 
 				// specular contribution
 				specularColor.copy(sunColor);
-				//specularColor.multScalar(RP);
 
 				// evaluate Blinn-Phong reflection model at this surface point
 				calcBlinnPhongReflection(rayDirection, nl, 1000);
@@ -661,7 +643,6 @@ function rayTrace(rayOrigin, rayDirection)
 
 				// specular contribution
 				specularColor.copy(sunColor);
-				//specularColor.multScalar(RP);
 
 				// evaluate Blinn-Phong reflection model at this surface point
 				calcBlinnPhongReflection(rayDirection, nl, 1000);
@@ -673,25 +654,25 @@ function rayTrace(rayOrigin, rayDirection)
 			}
 
 			colorMask.multScalar(TP);
-			
 
+			colorMask.mul(hitRecord.color);
+			
 			// ambient
-			ambientColor.copy(hitRecord.color);
-			ambientColor.mul(colorMask);
+			ambientColor.copy(colorMask);
 			ambientColor.mul(skyColor);
 			ambientColor.multScalar(0.3);
+			ambientContribution.copy(ambientColor);
+
 			// diffuse
-			diffuseColor.copy(hitRecord.color);
-			diffuseColor.mul(colorMask);
+			diffuseColor.copy(colorMask);
 			diffuseColor.mul(sunColor);
-			// specular
-			specularColor.copy(sunColor);
 
-			// evaluate Blinn-Phong reflection model at this surface point
-			calcBlinnPhongReflection(rayDirection, nl, 1000);
 			accumulatedColor.mix(ambientColor, diffuseColor, Math.max(0, nl.dot(sunDirection)));
-			accumulatedColor.add(specularColor);
 
+			// specular - none
+			specularColor.set(0, 0, 0);
+			
+			
 			// create shadow ray
 			rayOrigin.add(tempNormal);
 			rayDirection.copy(sunDirection);
