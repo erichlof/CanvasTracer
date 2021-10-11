@@ -167,10 +167,9 @@ function calcFresnelReflectance(rayDirection, n, etai, etat)
 
 let halfDir = new vec3();
 let specAngle = 0;
-let specColor = new vec3();
-let ambientContribution = new vec3();
-let diffuseContribution = new vec3();
+let specAmount = 0;
 let specularContribution = new vec3();
+
 function calcBlinnPhongReflection(rayDirection, normal, shininessExp)
 {
 	halfDir.copy(rayDirection);
@@ -179,10 +178,8 @@ function calcBlinnPhongReflection(rayDirection, normal, shininessExp)
 	halfDir.normalize();
 	
 	specAngle = Math.max(0.0, halfDir.dot(normal));
-	specColor.copy(specularColor);
-	specColor.multScalar(Math.pow(specAngle, shininessExp));
-
-	specularContribution.add(specColor);
+	
+	return Math.pow(specAngle, shininessExp);
 }
 
 
@@ -297,7 +294,7 @@ let specularColor = new vec3();
 let accumulatedColor = new vec3();
 let colorMask = new vec3();
 let bounceIsSpecular = true;
-let sampleLight = false;
+let sendShadowRay = false;
 let t = Infinity;
 let d = Infinity;
 let metalSphereRad = 2;
@@ -391,7 +388,7 @@ function sceneIntersect(rayOrigin, rayDirection)
 	if (d < hitRecord.t)
 	{
 		hitRecord.t = d;
-		hitRecord.color.set(1.0, 0.8, 0.2);
+		hitRecord.color.set(1.0, 0.7, 0.1);
 		tempDir.copy(rayDirection);
 		tempDir.multScalar(hitRecord.t);
 		hitPoint.copy(rayOrigin);
@@ -406,7 +403,7 @@ function sceneIntersect(rayOrigin, rayDirection)
 	if (d < hitRecord.t)
 	{
 		hitRecord.t = d;
-		hitRecord.color.set(1, 0, 0);
+		hitRecord.color.set(1.0, 0.0, 0.0);
 		tempDir.copy(rayDirection);
 		tempDir.multScalar(hitRecord.t);
 		hitPoint.copy(rayOrigin);
@@ -421,7 +418,8 @@ function sceneIntersect(rayOrigin, rayDirection)
 	if (d < hitRecord.t)
 	{
 		hitRecord.t = d;
-		hitRecord.color.set(0.6, 1.0, 0.9);
+		//hitRecord.color.set(0.6, 1.0, 0.9);
+		hitRecord.color.set(0.2, 1.0, 1.0);
 		tempDir.copy(rayDirection);
 		tempDir.multScalar(hitRecord.t);
 		hitPoint.copy(rayOrigin);
@@ -451,7 +449,7 @@ function sceneIntersect(rayOrigin, rayDirection)
 	if (d < hitRecord.t)
 	{
 		hitRecord.t = d;
-		hitRecord.color.set(1, 1, 1);
+		hitRecord.color.set(1.0, 1.0, 1.0);
 		tempDir.copy(rayDirection);
 		tempDir.multScalar(hitRecord.t);
 		//hitPoint.copy(rayOrigin);
@@ -467,14 +465,13 @@ function sceneIntersect(rayOrigin, rayDirection)
 function rayTrace(rayOrigin, rayDirection)
 {
 	accumulatedColor.set(0, 0, 0);
+	ambientColor.set(0, 0, 0);
 	diffuseColor.set(0, 0, 0);
 	specularColor.set(0, 0, 0);
-	colorMask.set(1, 1, 1);
-	ambientContribution.set(0, 0, 0);
-	diffuseContribution.set(0, 0, 0);
 	specularContribution.set(0, 0, 0);
+	colorMask.set(1, 1, 1);
 	bounceIsSpecular = true;
-	sampleLight = false;
+	sendShadowRay = false;
 
 	for (let bounces = 0; bounces < MAX_BOUNCES; bounces++)
 	{
@@ -501,11 +498,11 @@ function rayTrace(rayOrigin, rayDirection)
 		}
 
 
-		// if we reached this point and sampleLight is still true, this means that the shadow ray 
+		// if we reached this point and sendShadowRay is still true, this means that the shadow ray 
 		//  intersected another scene object before it could reach the light source, so exit
-		if (sampleLight)
+		if (sendShadowRay)
 		{	
-			accumulatedColor.copy(ambientContribution);
+			accumulatedColor.copy(ambientColor);
 			break; // this exit leaves a shadow
 		}
 
@@ -541,16 +538,12 @@ function rayTrace(rayOrigin, rayDirection)
 			ambientColor.copy(colorMask);
 			ambientColor.mul(skyColor);
 			ambientColor.multScalar(0.3);
-			ambientContribution.copy(ambientColor);
 
 			// diffuse
 			diffuseColor.copy(colorMask);
 			diffuseColor.mul(sunColor);
 
 			accumulatedColor.mix(ambientColor, diffuseColor, Math.max(0, nl.dot(sunDirection)));
-
-			// specular - none
-			specularColor.set(0, 0, 0);
 
 			// create shadow ray
 			rayOrigin.add(tempNormal);
@@ -559,7 +552,7 @@ function rayTrace(rayOrigin, rayDirection)
 
 			bounceIsSpecular = false;
 
-			sampleLight = true;
+			sendShadowRay = true;
 
 			continue;
 		}
@@ -571,9 +564,12 @@ function rayTrace(rayOrigin, rayDirection)
 
 			// specular contribution
 			specularColor.copy(sunColor);
+			specularColor.mul(colorMask);
 
 			// evaluate Blinn-Phong reflection model at this surface point
-			calcBlinnPhongReflection(rayDirection, nl, 1000);
+			specAmount = calcBlinnPhongReflection(rayDirection, nl, 1000);
+			specularColor.multScalar(specAmount);
+			specularContribution.add(specularColor);
 
 			rayOrigin.add(tempNormal); // nudge ray out from surface a tiny bit along surface normal
 			// the above is needed to prevent self-intersection with previously intersected surface
@@ -602,7 +598,9 @@ function rayTrace(rayOrigin, rayDirection)
 				specularColor.copy(sunColor);
 
 				// evaluate Blinn-Phong reflection model at this surface point
-				calcBlinnPhongReflection(rayDirection, nl, 1000);
+				specAmount = calcBlinnPhongReflection(rayDirection, nl, 1000);
+				specularColor.multScalar(specAmount);
+				specularContribution.add(specularColor);
 
 				rayOrigin.add(tempNormal);
 				rayDirection.reflect(nl);
@@ -616,9 +614,12 @@ function rayTrace(rayOrigin, rayDirection)
 
 			// specular contribution
 			specularColor.copy(sunColor);
+			specularColor.mul(colorMask);
 
 			// evaluate Blinn-Phong reflection model at this surface point
-			calcBlinnPhongReflection(rayDirection, nl, 1000);
+			specAmount = calcBlinnPhongReflection(rayDirection, nl, 1000);
+			specularColor.multScalar(specAmount);
+			specularContribution.add(specularColor);
 
 			rayOrigin.sub(tempNormal);
 			rayDirection.refract(nl, ratioIoR);
@@ -645,7 +646,9 @@ function rayTrace(rayOrigin, rayDirection)
 				specularColor.copy(sunColor);
 
 				// evaluate Blinn-Phong reflection model at this surface point
-				calcBlinnPhongReflection(rayDirection, nl, 1000);
+				specAmount = calcBlinnPhongReflection(rayDirection, nl, 1000);
+				specularColor.multScalar(specAmount);
+				specularContribution.add(specularColor);
 
 				rayOrigin.add(tempNormal);
 				rayDirection.reflect(nl);
@@ -661,7 +664,6 @@ function rayTrace(rayOrigin, rayDirection)
 			ambientColor.copy(colorMask);
 			ambientColor.mul(skyColor);
 			ambientColor.multScalar(0.3);
-			ambientContribution.copy(ambientColor);
 
 			// diffuse
 			diffuseColor.copy(colorMask);
@@ -669,9 +671,6 @@ function rayTrace(rayOrigin, rayDirection)
 
 			accumulatedColor.mix(ambientColor, diffuseColor, Math.max(0, nl.dot(sunDirection)));
 
-			// specular - none
-			specularColor.set(0, 0, 0);
-			
 			
 			// create shadow ray
 			rayOrigin.add(tempNormal);
@@ -680,7 +679,7 @@ function rayTrace(rayOrigin, rayDirection)
 
 			bounceIsSpecular = false;
 
-			sampleLight = true;
+			sendShadowRay = true;
 
 			continue;
 
