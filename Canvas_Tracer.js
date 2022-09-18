@@ -116,7 +116,7 @@ vec3.prototype.crossVectors = function(vecA, vecB)
 vec3.prototype.reflect = function(surfaceNormal)
 {
 	// R = I + (N * 2 * -IdotN)
-	surfaceNormal.normalize();
+	////surfaceNormal.normalize();
 	sN.copy(surfaceNormal);
 	sN.multScalar(2 * -this.dot(surfaceNormal));
 	this.add(sN);
@@ -127,7 +127,7 @@ let k = 0.0;
 vec3.prototype.refract = function(surfaceNormal, eta)
 {
 	// T = eta * I + (N * eta * -IdotN - sqrt(1 - (eta * eta * (1 - IdotN * IdotN))))
-	surfaceNormal.normalize();
+	////surfaceNormal.normalize();
 	sN.copy(surfaceNormal);
 	IdotN = -this.dot(surfaceNormal);
 	k = (eta * eta) * (1 - IdotN * IdotN);
@@ -189,21 +189,17 @@ function tentFilter(x)
 }
 
 
-
+let invA, neg_halfB, u2, u1;
 function solveQuadratic(A, B, C)
 {
-	discrim = (B * B) - 4.0 * (A * C);
-    
-	if (discrim < 0.0)
-		return false;
-    
-	rootDiscrim = Math.sqrt(discrim);
-
-	Q = (B > 0.0) ? -0.5 * (B + rootDiscrim) : -0.5 * (B - rootDiscrim); 
-	
-	t0 = C / Q;
-	t1 = Q / A;
-	
+	invA = 1.0 / A;
+	B *= invA;
+	C *= invA;
+	neg_halfB = -B * 0.5;
+	u2 = neg_halfB * neg_halfB - C;
+	u1 = u2 < 0.0 ? neg_halfB = 0.0 : Math.sqrt(u2);
+	t0 = neg_halfB - u1;
+	t1 = neg_halfB + u1;
 	return true;
 }
 
@@ -236,7 +232,7 @@ let scaledNormal = new vec3();
 let result = 0.0;
 function PlaneIntersect( planeNormal, d, rayOrigin, rayDirection )
 {
-	planeNormal.normalize();
+	////planeNormal.normalize();
 	denom = planeNormal.dot(rayDirection);
 
 	// uncomment the following if single-sided plane is desired
@@ -250,14 +246,19 @@ function PlaneIntersect( planeNormal, d, rayOrigin, rayDirection )
 	return (result > 0.0) ? result : Infinity;
 }
 
-
+let numOfDownloads = 0;
 let canvas = document.querySelector('canvas');
-canvas.width = document.body.clientWidth;
-canvas.height = document.body.clientHeight;
+document.querySelector('a').addEventListener('click', function(event) {
+	event.target.href = canvas.toDataURL();
+	event.target.download = "render" + numOfDownloads + ".png";
+	numOfDownloads++;	
+});
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 let invWidth = 1.0 / canvas.width;
 let invHeight = 1.0 / canvas.height;
 let aspectRatio = canvas.width / canvas.height;
-let FOV = 60.0;
+let FOV = 30.0;
 let thetaFOV = FOV * 0.5 * (Math.PI / 180.0);
 let vLen = Math.tan(thetaFOV); // height scale
 let uLen = vLen * aspectRatio; // width scale
@@ -265,21 +266,33 @@ let uLen = vLen * aspectRatio; // width scale
 let ctx = canvas.getContext('2d');
 let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-let pixelMemory = [];
-for (let i = 0; i < imageData.data.length; i += 4) 
+let RayTracedColorHistory = [];
+
+for (let j = 0; j < canvas.height; j++) 
 {
-	pixelMemory[i] = new vec3();
+	for (let i = 0; i < canvas.width; i++) 
+	{
+		RayTracedColorHistory[(j * canvas.width) + i] = new vec3();
+	}
 }
+
 
 let u = 0;
 let v = 0;
 let pixelOffsetX = 0;
 let pixelOffsetY = 0;
+let pixelIndex = 0;
 let pixelColor = new vec3();
 let colorPlusOne = new vec3();
 let inverseColor = new vec3();
-let cameraOrigin = new vec3(-2, 3.5, 6);//0,3,6
-let cameraTarget = new vec3(0, 1, 0);
+
+//let cameraOrigin = new vec3(2, 2, 1.5);
+//let cameraTarget = new vec3(1, 1.9, 1);
+let cameraOrigin = new vec3(-1, 0.5, 3);
+cameraOrigin.normalize();
+cameraOrigin.multScalar(20);
+let cameraTarget = new vec3(0, 2, 0);
+
 let cameraRightVec = new vec3();
 let cameraUpVec = new vec3();
 let cameraForwardVec = new vec3();
@@ -313,9 +326,9 @@ let sunColor = new vec3(1.0, 0.95, 0.9);
 sunColor.multScalar(5);
 let skyColor = new vec3(0.3, 0.6, 1.0);
 skyColor.multScalar(2);
-let checkColor1 = new vec3(1, 1, 1);
-let checkColor2 = new vec3(0, 0, 0);
-let checkScale = 1.0;
+let checkColor1 = new vec3(0.5, 0.5, 0.0);
+let checkColor2 = new vec3(0.5, 0.0, 0.0);
+let checkScale = 0.3;
 let intersectionPoint = new vec3();
 let hitPoint = new vec3();
 let normal = new vec3();
@@ -352,28 +365,30 @@ window.addEventListener('resize', onWindowResize, false);
 function onWindowResize(event)
 {
 	// recalculate image dimensions and viewing plane scale
-	canvas.width = document.body.clientWidth;
-	canvas.height = document.body.clientHeight;
+	canvas.width = window.innerWidth;
+	canvas.height = window.innerHeight;
 	invWidth = 1.0 / canvas.width;
 	invHeight = 1.0 / canvas.height;
 	aspectRatio = canvas.width / canvas.height;
-	// FOV = 60.0;
-	// thetaFOV = FOV * 0.5 * (Math.PI / 180.0);
 	vLen = Math.tan(thetaFOV); // height scale
 	uLen = vLen * aspectRatio; // width scale
 
 	imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-	pixelMemory = [];
-	for (let i = 0; i < imageData.data.length; i += 4) 
+	RayTracedColorHistory = [];
+
+	for (let j = 0; j < canvas.height; j++) 
 	{
-		pixelMemory[i] = new vec3();
+		for (let i = 0; i < canvas.width; i++) 
+		{
+			RayTracedColorHistory[(j * canvas.width) + i] = new vec3();
+		}
 	}
 
 	if (sampleCount == MAX_SAMPLE_COUNT)
 	{
-		sampleCount = 0;
-		animate(); // restart requestAnimationFrame
+		sampleCount = 0; // reset sampleCount to start a fresh progressive render
+		animate(); // also need to restart requestAnimationFrame
 	}
 	else
 		sampleCount = 0; // reset sampleCount to start a fresh progressive render
@@ -395,7 +410,7 @@ function sceneIntersect(rayOrigin, rayDirection)
 		hitPoint.add(tempDir);
 		hitRecord.normal.copy(hitPoint);
 		hitRecord.normal.sub(metalSpherePos);
-		hitRecord.normal.normalize();
+		////hitRecord.normal.normalize();
 		hitRecord.type = METAL;
 	}
 
@@ -410,7 +425,7 @@ function sceneIntersect(rayOrigin, rayDirection)
 		hitPoint.add(tempDir);
 		hitRecord.normal.copy(hitPoint);
 		hitRecord.normal.sub(diffuseSpherePos);
-		hitRecord.normal.normalize();
+		////hitRecord.normal.normalize();
 		hitRecord.type = DIFFUSE;
 	}
 
@@ -426,7 +441,7 @@ function sceneIntersect(rayOrigin, rayDirection)
 		hitPoint.add(tempDir);
 		hitRecord.normal.copy(hitPoint);
 		hitRecord.normal.sub(glassSpherePos);
-		hitRecord.normal.normalize();
+		////hitRecord.normal.normalize();
 		hitRecord.type = TRANSPARENT;
 	}
 
@@ -441,7 +456,7 @@ function sceneIntersect(rayOrigin, rayDirection)
 		hitPoint.add(tempDir);
 		hitRecord.normal.copy(hitPoint);
 		hitRecord.normal.sub(coatSpherePos);
-		hitRecord.normal.normalize();
+		////hitRecord.normal.normalize();
 		hitRecord.type = CLEARCOAT;
 	}
 
@@ -455,7 +470,7 @@ function sceneIntersect(rayOrigin, rayDirection)
 		//hitPoint.copy(rayOrigin);
 		//hitPoint.add(tempDir);
 		hitRecord.normal.copy(planeNormal);
-		hitRecord.normal.normalize();
+		////hitRecord.normal.normalize();
 		hitRecord.type = CHECKER;
 	}
 
@@ -526,8 +541,8 @@ function rayTrace(rayOrigin, rayDirection)
 			if (hitRecord.type == CHECKER)
 			{
 				// create checker pattern
-				//if ( Math.abs( Math.floor(rayOrigin.x * checkScale) ) % 2 + Math.abs( Math.floor(rayOrigin.z * checkScale) ) % 2 == 1 )
-				if (Math.sin((rayOrigin.x * checkScale)) > -0.98 && Math.sin((rayOrigin.z * checkScale)) > -0.98)
+				if ( Math.abs( Math.floor(rayOrigin.x * checkScale) ) % 2 + Math.abs( Math.floor(rayOrigin.z * checkScale) ) % 2 == 1 )
+				////if (Math.sin((rayOrigin.x * checkScale)) > -0.99 && Math.sin((rayOrigin.z * checkScale)) > -0.99)
 					hitRecord.color.copy(checkColor1);
 				else hitRecord.color.copy(checkColor2);
 			}
@@ -548,7 +563,7 @@ function rayTrace(rayOrigin, rayDirection)
 			// create shadow ray
 			rayOrigin.add(tempNormal);
 			rayDirection.copy(sunDirection);
-			rayDirection.normalize();
+			////rayDirection.normalize();
 
 			bounceIsSpecular = false;
 
@@ -675,7 +690,7 @@ function rayTrace(rayOrigin, rayDirection)
 			// create shadow ray
 			rayOrigin.add(tempNormal);
 			rayDirection.copy(sunDirection);
-			rayDirection.normalize();
+			////rayDirection.normalize();
 
 			bounceIsSpecular = false;
 
@@ -705,85 +720,106 @@ function getPixelColor()
 	// for generating the mathematically correct orthonormal basis of the camera.  But the actual ray direction needs to
 	// point in the opposite direction, in other words from the camera location pointing towards the camera target
 	cameraForwardVec.multScalar(-1); // flip it to opposite direction
-	cameraForwardVec.normalize();
+	////cameraForwardVec.normalize();
 
 	imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 	
 	// loop over every pixel on the canvas all the way from the top left to the bottom right
-	for (let i = 0; i < imageData.data.length; i += 4) 
-	{      
-		// calculate random pixel offset (anti-aliasing)
-		pixelOffsetX = tentFilter(Math.random());
-		pixelOffsetY = tentFilter(Math.random());
+	for (let j = 0; j < canvas.height; j++)
+	{
+		for (let i = 0; i < canvas.width; i++) 
+		{      
+			// calculate random pixel offset (anti-aliasing)
+			pixelOffsetX = tentFilter(Math.random());
+			pixelOffsetY = tentFilter(Math.random());
 
-		u = ( Math.floor((i / 4) % canvas.width) + 0.5 + pixelOffsetX ) * invWidth;
-		u = u * 2 - 1;
-		// now, left side of image is -1, middle is 0, and right is +1 with smooth transition in between
-		
-		v = ( Math.floor((i / 4) / canvas.width) + 0.5 + pixelOffsetY) * invHeight;
-		v = v * 2 - 1;
-		v *= -1;// flip Y(v) coordinates
-		// now, bottom of image is -1, middle is 0, and top is +1 with smooth transition
+			u = (i + pixelOffsetX) / canvas.width;
+			v = (j + pixelOffsetY) / canvas.height;
 
-		 
-		// construct ray that starts at camera origin and goes right through this particular pixel (u,v) on the view plane
-		rayOrigin.copy(cameraOrigin);
+			u = (u * 2) - 1;
+			v = (v * 2) - 1;
+			v *= -1;// flip Y(v) coordinates
+			// now, bottom of image is -1, middle is 0, and top is +1 with smooth transition
+			
+			// construct ray that starts at camera origin and goes right through this particular pixel (u,v) on the view plane
+			rayOrigin.copy(cameraOrigin);
 
-		tempRightVec.copy(cameraRightVec);
-		tempRightVec.multScalar(u);
-		tempRightVec.multScalar(uLen);
+			tempRightVec.copy(cameraRightVec);
+			tempRightVec.multScalar(u);
+			tempRightVec.multScalar(uLen);
 
-		tempUpVec.copy(cameraUpVec);
-		tempUpVec.multScalar(v);
-		tempUpVec.multScalar(vLen);
-		
-		rayDirection.copy(cameraForwardVec);
-		rayDirection.add(tempRightVec);
-		rayDirection.add(tempUpVec);
-		rayDirection.normalize();
+			tempUpVec.copy(cameraUpVec);
+			tempUpVec.multScalar(v);
+			tempUpVec.multScalar(vLen);
+			
+			rayDirection.copy(cameraForwardVec);
+			rayDirection.add(tempRightVec);
+			rayDirection.add(tempUpVec);
+			rayDirection.normalize();
 
-		// calculate this pixel's color through ray tracing
-		pixelMemory[i].add(rayTrace(rayOrigin, rayDirection));
-		pixelColor.copy(pixelMemory[i]);
+			// get the flat 1d index for this pixel from its initial 2d indices in screen coordinates (i,j)
+			pixelIndex = (j * canvas.width) + i; // convert 2d indices to flat 1d index
 
-		pixelColor.multScalar(1.0 / (sampleCount + 1));
+			// calculate this pixel's color through ray tracing
+			// add current raytraced pixel color result into accumulation buffer (color history) for this particular pixel
+			RayTracedColorHistory[pixelIndex].add(rayTrace(rayOrigin, rayDirection));
+		// make a copy of the current raytraced pixel color, so we can apply post processing to it below safely,
+		// without polluting the original pixel color value above that is added to the accumulation buffer (color history) each frame
+			pixelColor.copy(RayTracedColorHistory[pixelIndex]);
+			// now we can safely play around with 'pixelColor' and display it to the screen
+			pixelColor.multScalar(1.0 / (sampleCount + 1));
 
-		// apply Reinhard tonemapping (brings unbounded linear color values into 0-1 range)
-		colorPlusOne.set(1.0 + pixelColor.x, 1.0 + pixelColor.y, 1.0 + pixelColor.z);
-		inverseColor.set(1.0 / colorPlusOne.x, 1.0 / colorPlusOne.y, 1.0 / colorPlusOne.z);
-		pixelColor.mul(inverseColor);
+			// apply Reinhard tonemapping (brings unbounded linear color values into 0-1 range)
+			colorPlusOne.set(1.0 + pixelColor.x, 1.0 + pixelColor.y, 1.0 + pixelColor.z);
+			inverseColor.set(1.0 / colorPlusOne.x, 1.0 / colorPlusOne.y, 1.0 / colorPlusOne.z);
+			pixelColor.mul(inverseColor);
 
-		// clamp values to 0-1 range
-		// pixelColor.x = Math.max(0.0, Math.min(1.0, pixelColor.x));
-		// pixelColor.y = Math.max(0.0, Math.min(1.0, pixelColor.y));
-		// pixelColor.z = Math.max(0.0, Math.min(1.0, pixelColor.z));
-	
-		// do gamma correction
-		pixelColor.set(Math.pow(pixelColor.x, 0.4545), Math.pow(pixelColor.y, 0.4545), Math.pow(pixelColor.z, 0.4545)); 
+			// do gamma correction
+			pixelColor.set(Math.pow(pixelColor.x, 0.4545), Math.pow(pixelColor.y, 0.4545), Math.pow(pixelColor.z, 0.4545)); 
 
-		/* // test screen uv pattern
-		u = u * 0.5 + 0.5;
-		v = v * 0.5 + 0.5;
-		imageData.data[i + 0] = u * Math.abs(Math.sin(sampleCount * 0.1)) * 255;// pixelColor.x * 255; // red
-		imageData.data[i + 1] = u * Math.abs(Math.cos(sampleCount * 0.1)) * 255;// pixelColor.y * 255; // green
-		imageData.data[i + 2] = v * Math.abs(Math.sin((sampleCount + 5) * 0.05)) * 255// pixelColor.z * 255; // blue
-		imageData.data[i + 3] = 255; // alpha */
+			/* 
+			// test screen uv pattern
+			u = u * 0.5 + 0.5;
+			v = v * 0.5 + 0.5;
+			imageData.data[pixelIndex + 0] = u * Math.abs(Math.sin(sampleCount * 0.1)) * 255;// pixelColor.x * 255; // red
+			imageData.data[pixelIndex + 1] = u * Math.abs(Math.cos(sampleCount * 0.1)) * 255;// pixelColor.y * 255; // green
+			imageData.data[pixelIndex + 2] = v * Math.abs(Math.sin((sampleCount + 5) * 0.05)) * 255// pixelColor.z * 255; // blue
+			imageData.data[pixelIndex + 3] = 255; // alpha 
+			*/
 
-		imageData.data[i + 0] = pixelColor.x * 255; // red
-		imageData.data[i + 1] = pixelColor.y * 255; // green
-		imageData.data[i + 2] = pixelColor.z * 255; // blue
-		imageData.data[i + 3] = 255;                // alpha
+			// clamp values to 0-1 range
+			pixelColor.x = Math.max(0.0, Math.min(1.0, pixelColor.x));
+			pixelColor.y = Math.max(0.0, Math.min(1.0, pixelColor.y));
+			pixelColor.z = Math.max(0.0, Math.min(1.0, pixelColor.z));
+
+			// 'imageData' manipulation method (faster) for setting each screen pixel's color, one at a time
+			imageData.data[pixelIndex * 4 + 0] = pixelColor.x * 255; // red
+			imageData.data[pixelIndex * 4 + 1] = pixelColor.y * 255; // green
+			imageData.data[pixelIndex * 4 + 2] = pixelColor.z * 255; // blue
+			imageData.data[pixelIndex * 4 + 3] = 255;                // alpha
+			
+			// alt 'fillRect' method (a little slower) of painting tiny pixel-sized rectangles one at a time, 
+			// all the way from top-left corner to bottom-right corner
+			// note: remove the two ' * 4's above in color history
+			// pixelColor.multScalar(255);
+			// ctx.fillStyle = "rgb(" + pixelColor.x + "," + pixelColor.y + "," + pixelColor.z + ")";
+			// ctx.fillRect(i, j, 10, 10);
+		}
+
 	}
+	
 
 	ctx.putImageData(imageData, 0, 0);
 	sampleCount++;
 }
 
-
+let movementVec = new vec3(0,0,-1);
 function animate() 
 {
 	getPixelColor();
 	infoElement.innerHTML = "Samples: " + sampleCount + " / " + MAX_SAMPLE_COUNT;
+
+	///cameraOrigin.add(movementVec);
 
 	if (sampleCount < MAX_SAMPLE_COUNT)
 		requestAnimationFrame(animate);      
