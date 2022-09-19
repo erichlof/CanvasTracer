@@ -288,10 +288,10 @@ let inverseColor = new vec3();
 
 //let cameraOrigin = new vec3(2, 2, 1.5);
 //let cameraTarget = new vec3(1, 1.9, 1);
-let cameraOrigin = new vec3(-1, 0.5, 3);
+let cameraOrigin = new vec3(-1.2, 0.7, 3);
 cameraOrigin.normalize();
-cameraOrigin.multScalar(20);
-let cameraTarget = new vec3(0, 2, 0);
+cameraOrigin.multScalar(15);
+let cameraTarget = new vec3(0, 1, 0);
 
 let cameraRightVec = new vec3();
 let cameraUpVec = new vec3();
@@ -313,7 +313,7 @@ let d = Infinity;
 let metalSphereRad = 2;
 let metalSpherePos = new vec3(-2, metalSphereRad, -3);
 let diffuseSphereRad = 1;
-let diffuseSpherePos = new vec3(-2, diffuseSphereRad, 0.5);
+let diffuseSpherePos = new vec3(-2, diffuseSphereRad, 2);
 let glassSphereRad = 1.5;
 let glassSpherePos = new vec3(2, glassSphereRad, 1);
 let coatSphereRad = 2;
