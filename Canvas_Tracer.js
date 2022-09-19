@@ -116,7 +116,7 @@ vec3.prototype.crossVectors = function(vecA, vecB)
 vec3.prototype.reflect = function(surfaceNormal)
 {
 	// R = I + (N * 2 * -IdotN)
-	////surfaceNormal.normalize();
+	//surfaceNormal.normalize();
 	sN.copy(surfaceNormal);
 	sN.multScalar(2 * -this.dot(surfaceNormal));
 	this.add(sN);
@@ -127,7 +127,7 @@ let k = 0.0;
 vec3.prototype.refract = function(surfaceNormal, eta)
 {
 	// T = eta * I + (N * eta * -IdotN - sqrt(1 - (eta * eta * (1 - IdotN * IdotN))))
-	////surfaceNormal.normalize();
+	//surfaceNormal.normalize();
 	sN.copy(surfaceNormal);
 	IdotN = -this.dot(surfaceNormal);
 	k = (eta * eta) * (1 - IdotN * IdotN);
@@ -232,7 +232,7 @@ let scaledNormal = new vec3();
 let result = 0.0;
 function PlaneIntersect( planeNormal, d, rayOrigin, rayDirection )
 {
-	////planeNormal.normalize();
+	//planeNormal.normalize();
 	denom = planeNormal.dot(rayDirection);
 
 	// uncomment the following if single-sided plane is desired
@@ -364,6 +364,10 @@ window.addEventListener('resize', onWindowResize, false);
 
 function onWindowResize(event)
 {
+	// reset camera
+	cameraOrigin.set(-1.2, 0.7, 3);
+	cameraOrigin.normalize();
+	cameraOrigin.multScalar(15);
 	// recalculate image dimensions and viewing plane scale
 	canvas.width = window.innerWidth;
 	canvas.height = window.innerHeight;
@@ -410,7 +414,6 @@ function sceneIntersect(rayOrigin, rayDirection)
 		hitPoint.add(tempDir);
 		hitRecord.normal.copy(hitPoint);
 		hitRecord.normal.sub(metalSpherePos);
-		////hitRecord.normal.normalize();
 		hitRecord.type = METAL;
 	}
 
@@ -425,7 +428,6 @@ function sceneIntersect(rayOrigin, rayDirection)
 		hitPoint.add(tempDir);
 		hitRecord.normal.copy(hitPoint);
 		hitRecord.normal.sub(diffuseSpherePos);
-		////hitRecord.normal.normalize();
 		hitRecord.type = DIFFUSE;
 	}
 
@@ -441,7 +443,6 @@ function sceneIntersect(rayOrigin, rayDirection)
 		hitPoint.add(tempDir);
 		hitRecord.normal.copy(hitPoint);
 		hitRecord.normal.sub(glassSpherePos);
-		////hitRecord.normal.normalize();
 		hitRecord.type = TRANSPARENT;
 	}
 
@@ -456,7 +457,6 @@ function sceneIntersect(rayOrigin, rayDirection)
 		hitPoint.add(tempDir);
 		hitRecord.normal.copy(hitPoint);
 		hitRecord.normal.sub(coatSpherePos);
-		////hitRecord.normal.normalize();
 		hitRecord.type = CLEARCOAT;
 	}
 
@@ -470,12 +470,12 @@ function sceneIntersect(rayOrigin, rayDirection)
 		//hitPoint.copy(rayOrigin);
 		//hitPoint.add(tempDir);
 		hitRecord.normal.copy(planeNormal);
-		////hitRecord.normal.normalize();
 		hitRecord.type = CHECKER;
 	}
 
 	return hitRecord;
-}
+} // end function sceneIntersect(rayOrigin, rayDirection)
+
 
 function rayTrace(rayOrigin, rayDirection)
 {
@@ -523,7 +523,7 @@ function rayTrace(rayOrigin, rayDirection)
 
 		// useful data 
 		n.copy(hitRecord.normal);
-		n.normalize();
+		n.normalize(); // this normalization is important! Hit normals come in from sceneIntersect() as non-normalized
 		nl.copy(n);
 		if (rayDirection.dot(n) >= 0.0)
 			nl.multScalar(-1);
@@ -563,14 +563,11 @@ function rayTrace(rayOrigin, rayDirection)
 			// create shadow ray
 			rayOrigin.add(tempNormal);
 			rayDirection.copy(sunDirection);
-			////rayDirection.normalize();
 
 			bounceIsSpecular = false;
-
 			sendShadowRay = true;
-
 			continue;
-		}
+		} // end if (hitRecord.type == DIFFUSE || hitRecord.type == CHECKER)
 
 
 		if (hitRecord.type == METAL)
@@ -591,9 +588,8 @@ function rayTrace(rayOrigin, rayDirection)
 
 			rayDirection.reflect(nl); // create reflection ray
 			rayDirection.normalize();
-
 			continue; 
-		}
+		} // end if (hitRecord.type == METAL)
 
 		if (hitRecord.type == TRANSPARENT)
 		{ 
@@ -639,7 +635,6 @@ function rayTrace(rayOrigin, rayDirection)
 			rayOrigin.sub(tempNormal);
 			rayDirection.refract(nl, ratioIoR);
 			rayDirection.normalize();
-
 			continue; 
 		} // end if (hitRecord.type == TRANSPARENT)
 
@@ -690,14 +685,10 @@ function rayTrace(rayOrigin, rayDirection)
 			// create shadow ray
 			rayOrigin.add(tempNormal);
 			rayDirection.copy(sunDirection);
-			////rayDirection.normalize();
 
 			bounceIsSpecular = false;
-
 			sendShadowRay = true;
-
 			continue;
-
 		} // end if (hitRecord.type == CLEARCOAT)
 
 	} // end for (let bounces = 0; bounces < MAX_BOUNCES; bounces++)
@@ -720,7 +711,7 @@ function getPixelColor()
 	// for generating the mathematically correct orthonormal basis of the camera.  But the actual ray direction needs to
 	// point in the opposite direction, in other words from the camera location pointing towards the camera target
 	cameraForwardVec.multScalar(-1); // flip it to opposite direction
-	////cameraForwardVec.normalize();
+	
 
 	imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 	
@@ -792,26 +783,31 @@ function getPixelColor()
 			pixelColor.y = Math.max(0.0, Math.min(1.0, pixelColor.y));
 			pixelColor.z = Math.max(0.0, Math.min(1.0, pixelColor.z));
 
-			// 'imageData' manipulation method (faster) for setting each screen pixel's color, one at a time
+			/* 
+			'imageData' manipulation method (faster) for setting each screen pixel's color, one at a time 
+			*/
 			imageData.data[pixelIndex * 4 + 0] = pixelColor.x * 255; // red
 			imageData.data[pixelIndex * 4 + 1] = pixelColor.y * 255; // green
 			imageData.data[pixelIndex * 4 + 2] = pixelColor.z * 255; // blue
 			imageData.data[pixelIndex * 4 + 3] = 255;                // alpha
 			
-			// alt 'fillRect' method (a little slower) of painting tiny pixel-sized rectangles one at a time, 
-			// all the way from top-left corner to bottom-right corner
-			// note: remove the two ' * 4's above in color history
+			/* 
+			alt 'fillRect' method (2x slower than above) of painting tiny pixel-sized rectangles one at a time, 
+			all the way from top-left corner to bottom-right corner
+			note: in order to use this method, comment out the line "ctx.putImageData(imageData, 0, 0);" 10 lines below
+			*/
 			// pixelColor.multScalar(255);
 			// ctx.fillStyle = "rgb(" + pixelColor.x + "," + pixelColor.y + "," + pixelColor.z + ")";
-			// ctx.fillRect(i, j, 10, 10);
-		}
+			// ctx.fillRect(i, j, 1, 1);
 
-	}
+		} // end for (let i = 0; i < canvas.width; i++) 
+
+	} // end for (let j = 0; j < canvas.height; j++)
 	
-
 	ctx.putImageData(imageData, 0, 0);
 	sampleCount++;
-}
+} // end function getPixelColor()
+
 
 let movementVec = new vec3(0,0,-1);
 function animate() 
@@ -819,7 +815,7 @@ function animate()
 	getPixelColor();
 	infoElement.innerHTML = "Samples: " + sampleCount + " / " + MAX_SAMPLE_COUNT;
 
-	///cameraOrigin.add(movementVec);
+	//cameraOrigin.add(movementVec);
 
 	if (sampleCount < MAX_SAMPLE_COUNT)
 		requestAnimationFrame(animate);      
