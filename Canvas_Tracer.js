@@ -253,10 +253,10 @@ document.querySelector('a').addEventListener('click', function(event) {
 	event.target.download = "render" + numOfDownloads + ".png";
 	numOfDownloads++;	
 });
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
-let invWidth = 1.0 / canvas.width;
-let invHeight = 1.0 / canvas.height;
+
+let pixelRatio = 1.0; // conservative range: 0.1 to 1.0
+canvas.width = window.innerWidth * pixelRatio;
+canvas.height = window.innerHeight * pixelRatio;
 let aspectRatio = canvas.width / canvas.height;
 let FOV = 30.0;
 let thetaFOV = FOV * 0.5 * (Math.PI / 180.0);
@@ -369,10 +369,8 @@ function onWindowResize(event)
 	cameraOrigin.normalize();
 	cameraOrigin.multScalar(15);
 	// recalculate image dimensions and viewing plane scale
-	canvas.width = window.innerWidth;
-	canvas.height = window.innerHeight;
-	invWidth = 1.0 / canvas.width;
-	invHeight = 1.0 / canvas.height;
+	canvas.width = window.innerWidth * pixelRatio;
+	canvas.height = window.innerHeight * pixelRatio;
 	aspectRatio = canvas.width / canvas.height;
 	vLen = Math.tan(thetaFOV); // height scale
 	uLen = vLen * aspectRatio; // width scale
