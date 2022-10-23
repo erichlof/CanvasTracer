@@ -1,42 +1,56 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<head>
-	<meta charset="UTF-8">
-	<title>Canvas Tracer</title>
-	<style>
-		html,
-		body,
-		canvas {
-			width: 100%;
-			height: 100%;
-			font-family: Monospace;
-			background-color: #000;
-			color: #000;
-			margin: 0px;
-			overflow: hidden;
-			touch-action: none;
-			cursor: default;
-		}
+	<head>
+		<meta charset="UTF-8">
+		<title> Canvas Tracer </title>
+		
+		<style>
+			html,
+			body,
+			canvas 
+			{
+				width: 100%;
+				height: 100%;
+				font-family: Monospace;
+				background-color: #000;
+				color: #000;
+				margin: 0px;
+				overflow: hidden;
+				touch-action: none;
+				cursor: default;
+				user-select: none;
+				-webkit-user-select: none;
+			}
 
-		a {
-			/* display: inline-block;
-			position: absolute; */
-			position: fixed;
-			background: #69c;
-			color: #fff;
-			padding: 5px 10px;
-		}
-	</style>
-</head>
+			a 
+			{
+				position: fixed;
+				background: #69c;
+				color: #fff;
+				padding: 5px 10px;
+			}
 
-<body>
-	<a href="" download>Save final Image</a>
-	<canvas></canvas>
-	<div id="info"
-		style="position:fixed; left:2%; bottom:15%; font-family:Courier, monospace; font-size: large; color:rgb(160,160,160);">
-	</div>
-	<script src="Canvas_Tracer.js"></script>
-</body>
+			#info
+			{
+				position: fixed;
+				left: 2%;
+				bottom: 15%;
+				font-family: 'Courier New', Courier, monospace;
+				font-size: large;
+				color: azure;
+			}
+		</style>
+	</head>
+
+	<body>
+		<a href="" download> Save final Image </a>
+
+		<canvas> </canvas>
+
+		<p id="info"> </p>
+
+		<script src="js/Canvas_Tracer.js"> </script>
+	</body>
 
 </html>
