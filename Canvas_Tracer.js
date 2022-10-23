@@ -7,11 +7,11 @@ let t1 = 0;
 let inverseMag = 0;
 let ratioIoR = 0;
 
-function vec3(x, y, z)
+function vec3(x = 0, y = 0, z = 0)
 {
-	this.x = x || 0.0;
-	this.y = y || 0.0;
-	this.z = z || 0.0;     
+	this.x = x;
+	this.y = y;
+	this.z = z;
 }
 
 let tempVec = new vec3();
@@ -60,7 +60,7 @@ vec3.prototype.multScalar = function(scalarNumber)
 	this.z *= scalarNumber;
 };
 
-vec3.prototype.negate = function ()
+vec3.prototype.negate = function()
 {
 	this.x *= -1;
 	this.y *= -1;
@@ -151,10 +151,10 @@ function calcFresnelReflectance(rayDirection, n, etai, etat)
 		etai = etat;
 		etat = temp;
 	}
-	
+
 	ratioIoR = etai / etat;
 	sint = ratioIoR * Math.sqrt(1.0 - (cosi * cosi));
-	if (sint > 1.0) 
+	if (sint > 1.0)
 		return 1.0; // total internal reflection
 
 	cost = Math.sqrt(1.0 - (sint * sint));
@@ -176,9 +176,9 @@ function calcBlinnPhongReflection(rayDirection, normal, shininessExp)
 	halfDir.negate();
 	halfDir.add(sunDirection);
 	halfDir.normalize();
-	
+
 	specAngle = Math.max(0.0, halfDir.dot(normal));
-	
+
 	return Math.pow(specAngle, shininessExp);
 }
 
@@ -203,95 +203,180 @@ function solveQuadratic(A, B, C)
 	return true;
 }
 
-function SphereIntersect( radius, position, rayOrigin, rayDirection )
+function SphereIntersect(radius, position, rayOrigin, rayDirection)
 {
 	t0 = 0;
 	t1 = 0;
 
 	L.copy(rayOrigin);
 	L.sub(position);
+
 	a = rayDirection.dot(rayDirection);
 	b = 2.0 * rayDirection.dot(L);
 	c = L.dot(L) - (radius * radius);
-	
-	if ( !solveQuadratic(a, b, c) )
+
+	if (!solveQuadratic(a, b, c))
 		return Infinity;
 
-	if (t0 > 0.0)
-		return t0;
-
+	result = Infinity;
 	if (t1 > 0.0)
-		return t1;
-		
-	return Infinity;
+	{
+		result = t1;
+	}
+
+	if (t0 > 0.0)
+	{
+		result = t0;
+	}
+
+	return result;
+}
+
+
+let tempVec2 = new vec3();
+
+function CylinderIntersect(radius, height, position, rayOrigin, rayDirection)
+{
+	t0 = 0;
+	t1 = 0;
+
+	L.copy(rayOrigin);
+	L.sub(position);
+
+	a = (rayDirection.x * rayDirection.x) + (rayDirection.z * rayDirection.z);
+	b = 2.0 * ( (rayDirection.x * L.x) + (rayDirection.z * L.z) );
+	c = ((L.x * L.x) + (L.z * L.z)) - (radius * radius);
+
+	if (!solveQuadratic(a, b, c))
+		return Infinity;
+
+	result = Infinity;
+	if (t1 > 0.0)
+	{
+		tempVec.copy(rayOrigin);
+		tempVec2.copy(rayDirection);
+		tempVec2.multScalar(t1);
+		tempVec.add(tempVec2);
+		if (tempVec.y > position.y - (height * 0.5) && tempVec.y < position.y + (height * 0.5))
+			result = t1;
+	}
+
+	if (t0 > 0.0)
+	{
+		tempVec.copy(rayOrigin);
+		tempVec2.copy(rayDirection);
+		tempVec2.multScalar(t0);
+		tempVec.add(tempVec2);
+		if (tempVec.y > position.y - (height * 0.5) && tempVec.y < position.y + (height * 0.5))
+			result = t0;
+	}
+
+	return result;
+}
+
+
+function ConeIntersect(radius, height, position, rayOrigin, rayDirection)
+{
+	t0 = 0;
+	t1 = 0;
+
+	L.copy(rayOrigin);
+	L.sub(position);
+
+	a = (rayDirection.x * rayDirection.x) - 0.25 * (rayDirection.y * rayDirection.y) + (rayDirection.z * rayDirection.z);
+	b = 2 * ((rayDirection.x * L.x) - 0.25 * (rayDirection.y * L.y) + (rayDirection.z * L.z));
+	c = ((L.x * L.x) - 0.25 * (L.y * L.y) + (L.z * L.z));
+
+	if (!solveQuadratic(a, b, c))
+		return Infinity;
+
+	result = Infinity;
+	if (t1 > 0.0)
+	{
+		tempVec.copy(rayOrigin);
+		tempVec2.copy(rayDirection);
+		tempVec2.multScalar(t1);
+		tempVec.add(tempVec2);
+		if (tempVec.y > 0 && tempVec.y < height)
+			result = t1;
+	}
+
+	if (t0 > 0.0)
+	{
+		tempVec.copy(rayOrigin);
+		tempVec2.copy(rayDirection);
+		tempVec2.multScalar(t0);
+		tempVec.add(tempVec2);
+		if (tempVec.y > 0 && tempVec.y < height)
+			result = t0;
+	}
+
+	return result;
 }
 
 let denom = 0.0;
 let pOrO = new vec3();
 let scaledNormal = new vec3();
 let result = 0.0;
-function PlaneIntersect( planeNormal, d, rayOrigin, rayDirection )
+function PlaneIntersect(planeNormal, d, rayOrigin, rayDirection)
 {
 	//planeNormal.normalize();
 	denom = planeNormal.dot(rayDirection);
 
 	// uncomment the following if single-sided plane is desired
 	//if (denom >= 0.0) return Infinity;
-	
+
 	scaledNormal.copy(planeNormal);
 	scaledNormal.multScalar(d);
 	pOrO.copy(scaledNormal);
-	pOrO.sub(rayOrigin); 
+	pOrO.sub(rayOrigin);
 	result = pOrO.dot(planeNormal) / denom;
 	return (result > 0.0) ? result : Infinity;
 }
 
 let numOfDownloads = 0;
 let canvas = document.querySelector('canvas');
-document.querySelector('a').addEventListener('click', function(event) {
+document.querySelector('a').addEventListener('click', function(event)
+{
 	event.target.href = canvas.toDataURL();
 	event.target.download = "render" + numOfDownloads + ".png";
-	numOfDownloads++;	
+	numOfDownloads++;
 });
 
 let pixelRatio = 1.0; // conservative range: 0.1 to 1.0
-canvas.width = window.innerWidth * pixelRatio;
-canvas.height = window.innerHeight * pixelRatio;
+canvas.width = Math.floor(window.innerWidth * pixelRatio);
+canvas.height = Math.floor(window.innerHeight * pixelRatio);
 let aspectRatio = canvas.width / canvas.height;
 let FOV = 30.0;
 let thetaFOV = FOV * 0.5 * (Math.PI / 180.0);
 let vLen = Math.tan(thetaFOV); // height scale
 let uLen = vLen * aspectRatio; // width scale
 
-let ctx = canvas.getContext('2d');
+let ctx = canvas.getContext('2d', {willReadFrequently: true});
 let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-let RayTracedColorHistory = [];
+let canvasW = canvas.width;
+let canvasH = canvas.height;
 
-for (let j = 0; j < canvas.height; j++) 
-{
-	for (let i = 0; i < canvas.width; i++) 
-	{
-		RayTracedColorHistory[(j * canvas.width) + i] = new vec3();
-	}
-}
 
+let PixelColorHistory = new Float32Array(canvas.width * canvas.height * 3);
 
 let u = 0;
 let v = 0;
 let pixelOffsetX = 0;
 let pixelOffsetY = 0;
 let pixelIndex = 0;
+let pixelHistoryIndex = 0;
+let imageDataIndex = 0;
 let pixelColor = new vec3();
 let colorPlusOne = new vec3();
 let inverseColor = new vec3();
 
-//let cameraOrigin = new vec3(2, 2, 1.5);
-//let cameraTarget = new vec3(1, 1.9, 1);
-let cameraOrigin = new vec3(-1.2, 0.7, 3);
+let cameraOrigin = new vec3(-1, 0.5, 2);
+///let cameraOrigin = new vec3(-1, 10, 2);
 cameraOrigin.normalize();
-cameraOrigin.multScalar(15);
-let cameraTarget = new vec3(0, 1, 0);
+cameraOrigin.multScalar(20);
+let cameraTarget = new vec3(0, 2, 0);
 
 let cameraRightVec = new vec3();
 let cameraUpVec = new vec3();
@@ -310,24 +395,26 @@ let bounceIsSpecular = true;
 let sendShadowRay = false;
 let t = Infinity;
 let d = Infinity;
-let metalSphereRad = 2;
-let metalSpherePos = new vec3(-2, metalSphereRad, -3);
+let metalCylinderRad = 2;
+let metalCylinderHeight = 4;
+let metalCylinderPos = new vec3(-2, 2, -3);
 let diffuseSphereRad = 1;
 let diffuseSpherePos = new vec3(-2, diffuseSphereRad, 2);
 let glassSphereRad = 1.5;
 let glassSpherePos = new vec3(2, glassSphereRad, 1);
-let coatSphereRad = 2;
-let coatSpherePos = new vec3(3, coatSphereRad, -4);
+let coatConeRad = 2;
+let coatConeHeight = 5;
+let coatConePos = new vec3(3, coatConeHeight, -4);
 let planeNormal = new vec3(0, 1, 0);
 let planeD = 0;
 let sunDirection = new vec3(1, 1, 0.5);
 sunDirection.normalize();
 let sunColor = new vec3(1.0, 0.95, 0.9);
-sunColor.multScalar(5);
+sunColor.multScalar(2);
 let skyColor = new vec3(0.3, 0.6, 1.0);
-skyColor.multScalar(2);
-let checkColor1 = new vec3(0.5, 0.5, 0.0);
-let checkColor2 = new vec3(0.5, 0.0, 0.0);
+skyColor.multScalar(1);
+let checkColor1 = new vec3(0.6, 0.6, 0.0);
+let checkColor2 = new vec3(0.03, 0.0, 0.3);
 let checkScale = 0.3;
 let intersectionPoint = new vec3();
 let hitPoint = new vec3();
@@ -360,34 +447,29 @@ const MAX_SAMPLE_COUNT = 100;// this number * 1 second = total rendering time to
 let sampleCount = 0;
 let infoElement = document.getElementById("info");
 
-window.addEventListener('resize', onWindowResize, false);
+
+window.addEventListener('orientationchange', onWindowResize);
+window.addEventListener('resize', onWindowResize);
 
 function onWindowResize(event)
 {
-	// reset camera
-	cameraOrigin.set(-1.2, 0.7, 3);
-	cameraOrigin.normalize();
-	cameraOrigin.multScalar(15);
+	
 	// recalculate image dimensions and viewing plane scale
-	canvas.width = window.innerWidth * pixelRatio;
-	canvas.height = window.innerHeight * pixelRatio;
+	canvas.width = Math.floor(window.innerWidth * pixelRatio);
+	canvas.height = Math.floor(window.innerHeight * pixelRatio);
 	aspectRatio = canvas.width / canvas.height;
 	vLen = Math.tan(thetaFOV); // height scale
 	uLen = vLen * aspectRatio; // width scale
 
 	imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-	RayTracedColorHistory = [];
+	canvasW = canvas.width;
+	canvasH = canvas.height;
 
-	for (let j = 0; j < canvas.height; j++) 
-	{
-		for (let i = 0; i < canvas.width; i++) 
-		{
-			RayTracedColorHistory[(j * canvas.width) + i] = new vec3();
-		}
-	}
+	PixelColorHistory = null;
+	PixelColorHistory = new Float32Array(canvas.width * canvas.height * 3);
 
-	if (sampleCount == MAX_SAMPLE_COUNT)
+	if (sampleCount === MAX_SAMPLE_COUNT)
 	{
 		sampleCount = 0; // reset sampleCount to start a fresh progressive render
 		animate(); // also need to restart requestAnimationFrame
@@ -401,7 +483,7 @@ function sceneIntersect(rayOrigin, rayDirection)
 	hitRecord.t = Infinity;
 	d = Infinity;
 
-	d = SphereIntersect(metalSphereRad, metalSpherePos, rayOrigin, rayDirection);
+	d = CylinderIntersect(metalCylinderRad, metalCylinderHeight, metalCylinderPos, rayOrigin, rayDirection);
 	if (d < hitRecord.t)
 	{
 		hitRecord.t = d;
@@ -411,7 +493,8 @@ function sceneIntersect(rayOrigin, rayDirection)
 		hitPoint.copy(rayOrigin);
 		hitPoint.add(tempDir);
 		hitRecord.normal.copy(hitPoint);
-		hitRecord.normal.sub(metalSpherePos);
+		hitRecord.normal.sub(metalCylinderPos);
+		hitRecord.normal.y = 0;
 		hitRecord.type = METAL;
 	}
 
@@ -444,7 +527,7 @@ function sceneIntersect(rayOrigin, rayDirection)
 		hitRecord.type = TRANSPARENT;
 	}
 
-	d = SphereIntersect(coatSphereRad, coatSpherePos, rayOrigin, rayDirection);
+	d = ConeIntersect(coatConeRad, coatConeHeight, coatConePos, rayOrigin, rayDirection);
 	if (d < hitRecord.t)
 	{
 		hitRecord.t = d;
@@ -453,8 +536,9 @@ function sceneIntersect(rayOrigin, rayDirection)
 		tempDir.multScalar(hitRecord.t);
 		hitPoint.copy(rayOrigin);
 		hitPoint.add(tempDir);
-		hitRecord.normal.copy(hitPoint);
-		hitRecord.normal.sub(coatSpherePos);
+
+		hitRecord.normal.set(hitPoint.x - coatConePos.x, -(hitPoint.y - coatConePos.y) * 0.25, hitPoint.z - coatConePos.z);
+
 		hitRecord.type = CLEARCOAT;
 	}
 
@@ -490,7 +574,7 @@ function rayTrace(rayOrigin, rayDirection)
 	{
 		hitRecord = sceneIntersect(rayOrigin, rayDirection);
 
-		if (hitRecord.t == Infinity)
+		if (hitRecord.t === Infinity)
 		{
 			if (bounceIsSpecular)
 			{
@@ -498,23 +582,23 @@ function rayTrace(rayOrigin, rayDirection)
 				accumulatedColor.mul(skyColor);
 				accumulatedColor.add(specularContribution);
 			}
-			if ( !bounceIsSpecular )
+			if (!bounceIsSpecular)
 			{
 				accumulatedColor.add(specularContribution);
 			}
-			if (bounces == 0)
+			if (bounces === 0)
 			{
 				accumulatedColor.copy(skyColor);
 			}
-			
-			break;        
+
+			break;
 		}
 
 
 		// if we reached this point and sendShadowRay is still true, this means that the shadow ray 
 		//  intersected another scene object before it could reach the light source, so exit
 		if (sendShadowRay)
-		{	
+		{
 			accumulatedColor.copy(ambientColor);
 			break; // this exit leaves a shadow
 		}
@@ -534,19 +618,19 @@ function rayTrace(rayOrigin, rayDirection)
 		tempNormal.multScalar(0.01);
 
 
-		if (hitRecord.type == DIFFUSE || hitRecord.type == CHECKER)
+		if (hitRecord.type === DIFFUSE || hitRecord.type === CHECKER)
 		{
-			if (hitRecord.type == CHECKER)
+			if (hitRecord.type === CHECKER)
 			{
 				// create checker pattern
-				if ( Math.abs( Math.floor(rayOrigin.x * checkScale) ) % 2 + Math.abs( Math.floor(rayOrigin.z * checkScale) ) % 2 == 1 )
-				////if (Math.sin((rayOrigin.x * checkScale)) > -0.99 && Math.sin((rayOrigin.z * checkScale)) > -0.99)
+				if (Math.abs(Math.floor(rayOrigin.x * checkScale)) % 2 + Math.abs(Math.floor(rayOrigin.z * checkScale)) % 2 === 1)
+					////if (Math.sin((rayOrigin.x * checkScale)) > -0.99 && Math.sin((rayOrigin.z * checkScale)) > -0.99)
 					hitRecord.color.copy(checkColor1);
 				else hitRecord.color.copy(checkColor2);
 			}
-			
+
 			colorMask.mul(hitRecord.color);
-			
+
 			// ambient
 			ambientColor.copy(colorMask);
 			ambientColor.mul(skyColor);
@@ -565,11 +649,11 @@ function rayTrace(rayOrigin, rayDirection)
 			bounceIsSpecular = false;
 			sendShadowRay = true;
 			continue;
-		} // end if (hitRecord.type == DIFFUSE || hitRecord.type == CHECKER)
+		} // end if (hitRecord.type === DIFFUSE || hitRecord.type === CHECKER)
 
 
-		if (hitRecord.type == METAL)
-		{ 
+		if (hitRecord.type === METAL)
+		{
 			colorMask.mul(hitRecord.color);
 
 			// specular contribution
@@ -586,11 +670,11 @@ function rayTrace(rayOrigin, rayDirection)
 
 			rayDirection.reflect(nl); // create reflection ray
 			rayDirection.normalize();
-			continue; 
-		} // end if (hitRecord.type == METAL)
+			continue;
+		} // end if (hitRecord.type === METAL)
 
-		if (hitRecord.type == TRANSPARENT)
-		{ 
+		if (hitRecord.type === TRANSPARENT)
+		{
 			nc = 1.0; // IOR of Air
 			nt = 1.5; // IOR of common Glass
 			Re = calcFresnelReflectance(rayDirection, n, nc, nt);
@@ -616,7 +700,7 @@ function rayTrace(rayOrigin, rayDirection)
 				rayDirection.normalize();
 				continue;
 			}
-			
+
 			// REFRACT (Transmit)
 			colorMask.multScalar(TP);
 			colorMask.mul(hitRecord.color);
@@ -633,11 +717,11 @@ function rayTrace(rayOrigin, rayDirection)
 			rayOrigin.sub(tempNormal);
 			rayDirection.refract(nl, ratioIoR);
 			rayDirection.normalize();
-			continue; 
-		} // end if (hitRecord.type == TRANSPARENT)
+			continue;
+		} // end if (hitRecord.type === TRANSPARENT)
 
-		if (hitRecord.type == CLEARCOAT)
-		{ 
+		if (hitRecord.type === CLEARCOAT)
+		{
 			nc = 1.0; // IOR of Air
 			nt = 1.4; // IOR of clearCoat
 			Re = calcFresnelReflectance(rayDirection, nl, nc, nt);
@@ -667,7 +751,7 @@ function rayTrace(rayOrigin, rayDirection)
 			colorMask.multScalar(TP);
 
 			colorMask.mul(hitRecord.color);
-			
+
 			// ambient
 			ambientColor.copy(colorMask);
 			ambientColor.mul(skyColor);
@@ -679,7 +763,7 @@ function rayTrace(rayOrigin, rayDirection)
 
 			accumulatedColor.mix(ambientColor, diffuseColor, Math.max(0, nl.dot(sunDirection)));
 
-			
+
 			// create shadow ray
 			rayOrigin.add(tempNormal);
 			rayDirection.copy(sunDirection);
@@ -687,7 +771,7 @@ function rayTrace(rayOrigin, rayDirection)
 			bounceIsSpecular = false;
 			sendShadowRay = true;
 			continue;
-		} // end if (hitRecord.type == CLEARCOAT)
+		} // end if (hitRecord.type === CLEARCOAT)
 
 	} // end for (let bounces = 0; bounces < MAX_BOUNCES; bounces++)
 
@@ -709,27 +793,27 @@ function getPixelColor()
 	// for generating the mathematically correct orthonormal basis of the camera.  But the actual ray direction needs to
 	// point in the opposite direction, in other words from the camera location pointing towards the camera target
 	cameraForwardVec.multScalar(-1); // flip it to opposite direction
-	
+
 
 	imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-	
+
 	// loop over every pixel on the canvas all the way from the top left to the bottom right
-	for (let j = 0; j < canvas.height; j++)
+	for (let j = 0; j < canvasH; j++)
 	{
-		for (let i = 0; i < canvas.width; i++) 
-		{      
+		for (let i = 0; i < canvasW; i++) 
+		{
 			// calculate random pixel offset (anti-aliasing)
 			pixelOffsetX = tentFilter(Math.random());
 			pixelOffsetY = tentFilter(Math.random());
 
-			u = (i + pixelOffsetX) / canvas.width;
-			v = (j + pixelOffsetY) / canvas.height;
+			u = (i + pixelOffsetX) / canvasW;
+			v = (j + pixelOffsetY) / canvasH;
 
 			u = (u * 2) - 1;
 			v = (v * 2) - 1;
 			v *= -1;// flip Y(v) coordinates
 			// now, bottom of image is -1, middle is 0, and top is +1 with smooth transition
-			
+
 			// construct ray that starts at camera origin and goes right through this particular pixel (u,v) on the view plane
 			rayOrigin.copy(cameraOrigin);
 
@@ -740,22 +824,29 @@ function getPixelColor()
 			tempUpVec.copy(cameraUpVec);
 			tempUpVec.multScalar(v);
 			tempUpVec.multScalar(vLen);
-			
+
 			rayDirection.copy(cameraForwardVec);
 			rayDirection.add(tempRightVec);
 			rayDirection.add(tempUpVec);
 			rayDirection.normalize();
 
 			// get the flat 1d index for this pixel from its initial 2d indices in screen coordinates (i,j)
-			pixelIndex = (j * canvas.width) + i; // convert 2d indices to flat 1d index
+			pixelIndex = (j * canvasW) + i; // convert 2d indices to flat 1d index
 
 			// calculate this pixel's color through ray tracing
-			// add current raytraced pixel color result into accumulation buffer (color history) for this particular pixel
-			RayTracedColorHistory[pixelIndex].add(rayTrace(rayOrigin, rayDirection));
-		// make a copy of the current raytraced pixel color, so we can apply post processing to it below safely,
-		// without polluting the original pixel color value above that is added to the accumulation buffer (color history) each frame
-			pixelColor.copy(RayTracedColorHistory[pixelIndex]);
-			// now we can safely play around with 'pixelColor' and display it to the screen
+			pixelColor.copy(rayTrace(rayOrigin, rayDirection));
+
+			// add current raytraced pixel color result into accumulation buffer (PixelColorHistory) for this particular pixel
+			pixelHistoryIndex = pixelIndex * 3;
+			PixelColorHistory[pixelHistoryIndex + 0] += pixelColor.x;
+			PixelColorHistory[pixelHistoryIndex + 1] += pixelColor.y;
+			PixelColorHistory[pixelHistoryIndex + 2] += pixelColor.z;
+			// make a copy of this pixel's accumulation buffer (PixelColorHistory), so we can apply post processing to it below safely,
+			// without polluting the accumulation buffer (PixelColorHistory) each frame
+			pixelColor.set( PixelColorHistory[pixelHistoryIndex + 0],
+					PixelColorHistory[pixelHistoryIndex + 1],
+					PixelColorHistory[pixelHistoryIndex + 2]);
+			// now we can safely modify 'pixelColor' and display it to the screen
 			pixelColor.multScalar(1.0 / (sampleCount + 1));
 
 			// apply Reinhard tonemapping (brings unbounded linear color values into 0-1 range)
@@ -764,8 +855,8 @@ function getPixelColor()
 			pixelColor.mul(inverseColor);
 
 			// do gamma correction
-			pixelColor.set(Math.pow(pixelColor.x, 0.4545), Math.pow(pixelColor.y, 0.4545), Math.pow(pixelColor.z, 0.4545)); 
-
+			///pixelColor.set(Math.pow(pixelColor.x, 0.4545), Math.pow(pixelColor.y, 0.4545), Math.pow(pixelColor.z, 0.4545));
+			pixelColor.set(Math.sqrt(pixelColor.x), Math.sqrt(pixelColor.y), Math.sqrt(pixelColor.z));
 			/* 
 			// test screen uv pattern
 			u = u * 0.5 + 0.5;
@@ -784,11 +875,12 @@ function getPixelColor()
 			/* 
 			'imageData' manipulation method (faster) for setting each screen pixel's color, one at a time 
 			*/
-			imageData.data[pixelIndex * 4 + 0] = pixelColor.x * 255; // red
-			imageData.data[pixelIndex * 4 + 1] = pixelColor.y * 255; // green
-			imageData.data[pixelIndex * 4 + 2] = pixelColor.z * 255; // blue
-			imageData.data[pixelIndex * 4 + 3] = 255;                // alpha
-			
+			imageDataIndex = pixelIndex * 4;
+			imageData.data[imageDataIndex + 0] = pixelColor.x * 255; // red
+			imageData.data[imageDataIndex + 1] = pixelColor.y * 255; // green
+			imageData.data[imageDataIndex + 2] = pixelColor.z * 255; // blue
+			imageData.data[imageDataIndex + 3] = 255;                // alpha
+
 			/* 
 			alt 'fillRect' method (2x slower than above) of painting tiny pixel-sized rectangles one at a time, 
 			all the way from top-left corner to bottom-right corner
@@ -798,16 +890,16 @@ function getPixelColor()
 			// ctx.fillStyle = "rgb(" + pixelColor.x + "," + pixelColor.y + "," + pixelColor.z + ")";
 			// ctx.fillRect(i, j, 1, 1);
 
-		} // end for (let i = 0; i < canvas.width; i++) 
+		} // end for (let i = 0; i < canvasW; i++) 
 
-	} // end for (let j = 0; j < canvas.height; j++)
-	
+	} // end for (let j = 0; j < canvasH; j++)
+
 	ctx.putImageData(imageData, 0, 0);
 	sampleCount++;
 } // end function getPixelColor()
 
 
-let movementVec = new vec3(0,0,-1);
+let movementVec = new vec3(0, 0, -1);
 function animate() 
 {
 	getPixelColor();
@@ -816,7 +908,7 @@ function animate()
 	//cameraOrigin.add(movementVec);
 
 	if (sampleCount < MAX_SAMPLE_COUNT)
-		requestAnimationFrame(animate);      
+		requestAnimationFrame(animate);
 }
 
 // start up the progressive rendering!
