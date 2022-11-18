@@ -138,7 +138,7 @@ vec3.prototype.refract = function(surfaceNormal, eta)
 
 let temp = 0.0;
 let cosi = 0.0;
-let sint = 0.0;
+let sint2 = 0.0;
 let cost = 0.0;
 let Rs = 0.0;
 let Rp = 0.0;
@@ -153,11 +153,11 @@ function calcFresnelReflectance(rayDirection, n, etai, etat)
 	}
 
 	ratioIoR = etai / etat;
-	sint = ratioIoR * Math.sqrt(1.0 - (cosi * cosi));
-	if (sint > 1.0)
+	sint2 = ratioIoR * ratioIoR * (1.0 - (cosi * cosi));
+	if (sint2 > 1.0)
 		return 1.0; // total internal reflection
 
-	cost = Math.sqrt(1.0 - (sint * sint));
+	cost = Math.sqrt(1.0 - sint2);
 	cosi = Math.abs(cosi);
 	Rs = ((etat * cosi) - (etai * cost)) / ((etat * cosi) + (etai * cost));
 	Rp = ((etai * cosi) - (etat * cost)) / ((etai * cosi) + (etat * cost));
