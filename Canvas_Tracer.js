@@ -83,7 +83,7 @@ vec3.prototype.squaredLength = function()
 
 vec3.prototype.magnitude = function()
 {
-	return Math.hypot(this.x, this.y, this.z);
+	return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
 };
 
 vec3.prototype.normalize = function()
