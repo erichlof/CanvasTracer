@@ -83,7 +83,7 @@ vec3.prototype.squaredLength = function()
 
 vec3.prototype.magnitude = function()
 {
-	return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
+	return Math.sqrt((this.x * this.x) + (this.y * this.y) + (this.z * this.z));
 };
 
 vec3.prototype.normalize = function()
@@ -129,9 +129,9 @@ vec3.prototype.refract = function(surfaceNormal, eta)
 	// T = eta * I + (N * eta * -IdotN - sqrt(1 - (eta * eta * (1 - IdotN * IdotN))))
 	//surfaceNormal.normalize();
 	sN.copy(surfaceNormal);
-	IdotN = -this.dot(surfaceNormal);
-	k = (eta * eta) * (1 - IdotN * IdotN);
-	sN.multScalar(eta * IdotN - Math.sqrt(1 - k));
+	IdotN = this.dot(surfaceNormal);
+	k = 1 - ((eta * eta) * (1 - IdotN * IdotN));
+	sN.multScalar(eta * -IdotN - Math.sqrt(k));
 	this.multScalar(eta);
 	this.add(sN);
 };
@@ -400,11 +400,11 @@ let metalCylinderHeight = 4;
 let metalCylinderPos = new vec3(-2, 2, -3);
 let diffuseSphereRad = 1;
 let diffuseSpherePos = new vec3(-2, diffuseSphereRad, 2);
-let glassSphereRad = 1.5;
-let glassSpherePos = new vec3(2, glassSphereRad, 1);
+let glassSphereRad = 2;
+let glassSpherePos = new vec3(2, glassSphereRad, 3);
 let coatConeRad = 2;
 let coatConeHeight = 5;
-let coatConePos = new vec3(3, coatConeHeight, -4);
+let coatConePos = new vec3(4, coatConeHeight, -5);
 let planeNormal = new vec3(0, 1, 0);
 let planeD = 0;
 let sunDirection = new vec3(1, 1, 0.5);
